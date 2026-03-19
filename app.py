@@ -1,85 +1,120 @@
 import streamlit as st
 
-# Налаштування сторінки
-st.set_page_config(page_title="PrimeBrok - Професійний Калькулятор", page_icon="🚗", layout="wide")
+# --- НАЛАШТУВАННЯ СТОРІНКИ ---
+st.set_page_config(page_title="PrimeBrok Intelligence", page_icon="🏎️", layout="wide")
 
-# --- СТИЛІЗАЦІЯ ---
+# --- ЛОГІКА ТАРИФІВ (З ВАШОЇ ТАБЛИЦІ) ---
+
+# Ціни на евакуатор (TOW) за штатами
+TOWING_DATA = {
+    "NJ (New Jersey)": 175,
+    "GA (Georgia)": 250,
+    "TX (Texas)": 325,
+    "CA (California)": 450,
+    "WA (Washington)": 500,
+    "FL (Florida)": 275,
+    "IL (Illinois)": 350,
+    "NY (New York)": 200,
+    "MD (Maryland)": 225
+}
+
+# Морський фрахт (Sea Freight)
+SEA_FREIGHT = {
+    "Constanta (Romania)": 2850,
+    "Odesa (Ukraine)": 3100,
+    "Klaipeda (Lithuania)": 2950,
+    "Gdynia (Poland)": 3000
+}
+
+# Розрахунок збору аукціону за вашою сіткою (Fees)
+def get_auction_fee(bid):
+    if bid < 100: return 50
+    elif bid < 500: return 200
+    elif bid < 1000: return 350
+    elif bid < 2000: return 500
+    elif bid < 3000: return 650
+    elif bid < 4000: return 750
+    elif bid < 5000: return 800
+    else: return 950 # Приблизний максимум для високих ставок
+
+# --- СТИЛІЗАЦІЯ ІНТЕРФЕЙСУ ---
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    h1 { color: #1E3A8A; font-family: 'Arial'; }
+    .main { background-color: #f8f9fa; }
+    .stNumberInput, .stSelectbox, .stTextInput { border-radius: 8px !important; }
+    .css-1kyxreq { justify-content: center; }
+    .result-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- ЛОГІКА ТАРИФІВ (ВИЯВЛЕНО В ТАБЛИЦІ) ---
-def get_auction_fee(bid):
-    if bid < 500: return 250
-    if bid < 1000: return 350
-    if bid < 2000: return 500
-    if bid < 3000: return 630
-    if bid < 4000: return 750
-    return 850  # Спрощена сітка з вашої таблиці
+# --- ШАПКА САЙТУ ---
+st.title("🏯 PrimeBrok Global Logistics")
+st.markdown("#### Професійний розрахунок лотів Copart та IAAI")
 
-def get_towing_cost(location):
-    # Логіка з вашої вкладки TOW
-    costs = {
-        "ALBANY": 200, "NEWARK": 150, "SAVANNAH": 250, 
-        "HOUSTON": 300, "LOS ANGELES": 450, "CHICAGO": 350
-    }
-    return costs.get(location, 250)
+# --- ВВІД ДАНИХ ---
+lot_url = st.text_input("🔗 Посилання на лот (Copart/IAAI/Impact)", placeholder="Вставте посилання тут...")
 
-# --- ІНТЕРФЕЙС ---
-st.title("🏯 PrimeBrok Intelligence")
-st.subheader("Повний розрахунок вартості авто з США")
+col1, col2, col3 = st.columns(3)
 
-# Основна форма
-with st.container():
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.info("📍 ПОХОДЖЕННЯ")
-        bid = st.number_input("Ставка аукціону (Bid), $", min_value=0, value=2000, step=100)
-        location = st.selectbox("Локація (Площадка)", ["ALBANY", "NEWARK", "SAVANNAH", "HOUSTON", "LOS ANGELES", "CHICAGO"])
-        port = st.selectbox("Порт призначення", ["Constanta", "Odesa", "Klaipeda"])
-        
-    with col2:
-        st.info("📝 ТЕХНІЧНІ ДАНІ")
-        year = st.number_input("Рік випуску", 1990, 2026, 2008)
-        engine = st.number_input("Об'єм двигуна (л)", 0.1, 10.0, 2.0)
-        fuel = st.selectbox("Тип палива", ["Бензин", "Дизель", "Гібрид", "Електро"])
-        
-    with col3:
-        st.info("💰 ФІНАНСИ")
-        customs = st.number_input("Митне очищення, $", value=4504)
-        broker = st.number_input("Брокер + Експедитор, $", value=800)
-        paid = st.number_input("Внесена оплата, $", value=0)
+with col1:
+    st.info("📍 Локація та Лот")
+    bid = st.number_input("Ставка аукціону (Bid), $", min_value=0, value=2000, step=100)
+    state = st.selectbox("Штат відправки (TOW)", list(TOWING_DATA.keys()))
+    port = st.selectbox("Порт призначення (Sea)", list(SEA_FREIGHT.keys()))
 
-# --- РОЗРАХУНОК ---
-fee = get_auction_fee(bid)
-tow = get_towing_cost(location)
-sea_freight = 2860 if port == "Constanta" else 3000 # Приклад логіки моря
+with col2:
+    st.info("⚙️ Параметри авто")
+    year = st.number_input("Рік випуску", 2000, 2026, 2018)
+    engine = st.number_input("Об'єм двигуна", 0.1, 10.0, 2.0)
+    fuel = st.selectbox("Тип палива", ["Бензин", "Дизель", "Гібрид", "Електро"])
+
+with col3:
+    st.info("💰 Фінанси та Митниця")
+    customs = st.number_input("Митні платежі, $", value=3500)
+    broker_fees = st.number_input("Брокер + Експедитор, $", value=800)
+    already_paid = st.number_input("Вже сплачено клієнтом, $", value=0)
+
+# --- РОЗРАХУНКОВА ЧАСТИНА ---
+auction_fee = get_auction_fee(bid)
+tow_cost = TOWING_DATA[state]
+sea_cost = SEA_FREIGHT[port]
 swift = 166
 insurance = 50
 
-total_transport = tow + sea_freight
-total_all_in = bid + fee + swift + total_transport + insurance + customs + broker
-current_debt = total_all_in - paid
+# Загальна сума
+total_all_in = bid + auction_fee + tow_cost + sea_cost + swift + insurance + customs + broker_fees
+remaining_debt = total_all_in - already_paid
 
-# --- РЕЗУЛЬТАТИ ---
+# --- ВИВІД РЕЗУЛЬТАТІВ ---
 st.markdown("---")
-res1, res2, res3, res4 = st.columns(4)
+st.subheader("📊 Підсумок розрахунку")
 
-res1.metric("ALL IN (ПОВНИЙ)", f"${total_all_in:,.0f}")
-res2.metric("АУКЦІОННИЙ ЗБІР", f"${fee}")
-res3.metric("ЛОГІСТИКА", f"${total_transport}")
-if current_debt > 0:
-    res4.error(f"БОРГ: ${current_debt:,.0f}")
-else:
-    res4.success("ОПЛАЧЕНО")
+res_col1, res_col2, res_col3, res_col4 = st.columns(4)
 
-# Деталізація для клієнта
-with st.expander("📊 Детальна специфікація витрат"):
-    st.write(f"**Аукціон:** ${bid} (Ставка) + ${fee} (Збір) + ${swift} (Swift) = **${bid+fee+swift}**")
-    st.write(f"**Доставка:** ${tow} (Евакуатор) + ${sea_freight} (Море) + ${insurance} (Страховка) = **${total_transport+insurance}**")
-    st.write(f"**Митниця та сервіс:** ${customs} (Мито) + ${broker} (Брокер) = **${customs+broker}**")
+with res_col1:
+    st.metric("TOTAL ALL IN", f"${total_all_in:,.0f}")
+with res_col2:
+    st.metric("ДОСТАВКА РАЗОМ", f"${tow_cost + sea_cost:,.0f}")
+with res_col3:
+    st.metric("ЗБІР АУКЦІОНУ", f"${auction_fee}")
+with res_col4:
+    if remaining_debt > 0:
+        st.error(f"ЗАЛИШОК: ${remaining_debt:,.0f}")
+    else:
+        st.success("ОПЛАЧЕНО")
+
+# ДЕТАЛІЗАЦІЯ
+with st.expander("📝 Повна деталізація (можна копіювати клієнту)"):
+    summary_text = f"""
+    🚗 **Розрахунок лоту:** {lot_url if lot_url else 'Без посилання'}
+    ---------------------------------
+    🔹 **Аукціон:** ${bid} (ставка) + ${auction_fee} (збір) + ${swift} (SWIFT) = **${bid+auction_fee+swift}**
+    🔹 **Логістика:** ${tow_cost} (TOW) + ${sea_cost} (Sea) + ${insurance} (Ins) = **${tow_cost+sea_cost+insurance}**
+    🔹 **Оформлення:** ${customs} (Мито) + ${broker_fees} (Сервіс) = **${customs+broker_fees}**
+    ---------------------------------
+    🏁 **РАЗОМ ПО КЛЮЧУ: ${total_all_in:,.0f}**
+    """
+    st.code(summary_text, language="markdown")
+
+st.markdown("---")
+st.caption("PrimeBrok Call System v2.0 | Дані базуються на вашій Google Таблиці")
