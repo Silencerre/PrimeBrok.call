@@ -3,28 +3,21 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-# --- НАСТРОЙКИ СТРАНИЦЫ ---
+# --- НАЛАШТУВАННЯ СТОРІНКИ ---
 st.set_page_config(page_title="PrimeBrok AI Pro", page_icon="🌎", layout="wide")
 
-# --- ПОЛНАЯ БАЗА ТАРИФОВ (ИЗ ВАШИХ ВКЛАДОК TOW) ---
+# --- БАЗА ТАРИФІВ (TOW) ---
 TOWING_DATA = {
     "NJ (New Jersey)": 175, "GA (Georgia)": 250, "TX (Texas)": 325,
     "CA (California)": 450, "WA (Washington)": 500, "FL (Florida)": 275,
     "IL (Illinois)": 350, "NY (New York)": 200, "MA (Massachusetts)": 210,
-    "PA (Pennsylvania)": 190, "OH (Ohio)": 280, "VA (Virginia)": 230,
-    "SC (South Carolina)": 240, "AL (Alabama)": 260
+    "PA (Pennsylvania)": 190, "OH (Ohio)": 280, "VA (Virginia)": 230
 }
 
-# Карта для авто-подбора штата из текста аукциона
 STATE_LOOKUP = {
-    "NJ": "NJ (New Jersey)", "NEW JERSEY": "NJ (New Jersey)",
-    "GA": "GA (Georgia)", "GEORGIA": "GA (Georgia)",
-    "TX": "TX (Texas)", "TEXAS": "TX (Texas)",
-    "CA": "CA (California)", "CALIFORNIA": "CA (California)",
-    "WA": "WA (Washington)", "WASHINGTON": "WA (Washington)",
-    "FL": "FL (Florida)", "FLORIDA": "FL (Florida)",
-    "IL": "IL (Illinois)", "ILLINOIS": "IL (Illinois)",
-    "NY": "NY (New York)", "NEW YORK": "NY (New York)"
+    "NJ": "NJ (New Jersey)", "GA": "GA (Georgia)", "TX": "TX (Texas)",
+    "CA": "CA (California)", "WA": "WA (Washington)", "FL": "FL (Florida)",
+    "IL": "IL (Illinois)", "NY": "NY (New York)"
 }
 
 SEA_FREIGHT = {
@@ -39,31 +32,32 @@ def get_auction_fee(bid):
     elif bid < 5000: return 790
     return 950
 
-# --- РОБОТ-ЛОГИСТ v4.0 ---
+# --- РОБОТ-ЛОГІСТ v4.1 (ВИПРАВЛЕНИЙ) ---
 def fetch_lot_details(url):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            text = soup.get_text().upper() # Переводим в верхний регистр для поиска
-            
-            # 1. Поиск Марки/Модели
+            text = soup.get_text().upper()
             title = soup.title.string.upper() if soup.title else ""
-            car_name = "НЕИЗВЕСТНОЕ АВТО"
-            match_car = re.findall(r'(?:20\d{2})\s+([A-Z0-0\s\-]+)\s+(?:LOT|STOCK)', title)
+            
+            # Марка/Модель
+            car_name = "АВТОМОБІЛЬ"
+            match_car = re.findall(r'(?:20\d{2})\s+([A-Z0-9\s\-]+)\s+(?:LOT|STOCK)', title)
             if match_car: car_name = match_car[0].strip()
 
-            # 2. Поиск Года
+            # Рік (з перевіркою меж)
             year_match = re.search(r'(20\d{2})', text)
             year = int(year_match.group(1)) if year_match else 2018
+            year = max(2000, min(2026, year)) # Запобіжник меж
             
-            # 3. Поиск Двигателя
+            # Двигун
             engine_match = re.search(r'(\d\.\d)L', text)
             engine = float(engine_match.group(1)) if engine_match else 2.0
             
-            # 4. АВТО-ОПРЕДЕЛЕНИЕ ЛОКАЦИИ (Геолокация аукциона)
-            detected_state = "NJ (New Jersey)" # По умолчанию
+            # Геолокація
+            detected_state = "NJ (New Jersey)"
             for key, full_name in STATE_LOOKUP.items():
                 if f" {key} " in text or f", {key}" in text:
                     detected_state = full_name
@@ -74,53 +68,50 @@ def fetch_lot_details(url):
     except:
         return {"status": "error"}
 
-# --- ИНТЕРФЕЙС ---
+# --- СЕСІЯ (БЕЗ ПОМИЛОК) ---
+if 'car' not in st.session_state:
+    st.session_state.car = {"year": 2018, "engine": 2.0, "brand": "", "state": "NJ (New Jersey)"}
+
 st.title("🏯 PrimeBrok AI: Smart Logistics")
 
-url_input = st.text_input("🔗 Вставьте ссылку на Copart/IAAI для авто-расчета", key="main_url")
+url_input = st.text_input("🔗 Вставте посилання на лот")
 
-# Сессия для хранения данных
-if 'data' not in st.session_state:
-    st.session_state.data = {"year": 2018, "engine": 2.0, "brand": "", "state": "NJ (New Jersey)"}
-
-if url_input:
-    if st.button("🚀 ЗАПУСТИТЬ АВТО-ПОДБОР"):
-        with st.spinner("Считываю локацию и параметры лота..."):
-            res = fetch_lot_details(url_input)
-            if res["status"] == "success":
-                st.session_state.data = res
-                st.success(f"✅ Локация определена: {res['state']}. Данные подтянуты!")
-            else:
-                st.error("❌ Не удалось считать данные. Выберите штат вручную.")
+if url_input and st.button("🚀 ЗАПУСТИТЬ АВТО-ПОДБОР"):
+    with st.spinner("Считую локацію та параметри лота..."):
+        res = fetch_lot_details(url_input)
+        if res["status"] == "success":
+            st.session_state.car = res
+            st.success(f"✅ Локація: {res['state']} | Авто: {res['brand']}")
+        else:
+            st.error("❌ Не вдалося отримати дані. Введіть вручну.")
 
 st.markdown("---")
-
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.subheader("🌎 Геолокация и Логистика")
+    st.subheader("🌎 Геолокація")
     bid = st.number_input("Ставка (Bid), $", min_value=0, value=2000)
     
-    # Авто-выбор штата из сессии
-    current_state_list = list(TOWING_DATA.keys())
-    state_index = current_state_list.index(st.session_state.data["state"])
-    
-    state = st.selectbox("Локация аукциона (TOW FROM)", current_state_list, index=state_index)
-    port = st.selectbox("Порт прибытия (SEA TO)", list(SEA_FREIGHT.keys()))
+    current_states = list(TOWING_DATA.keys())
+    # Авто-вибір штату
+    default_state_idx = current_states.index(st.session_state.car["state"])
+    state = st.selectbox("Локація аукціона", current_states, index=default_state_idx)
+    port = st.selectbox("Порт призначення", list(SEA_FREIGHT.keys()))
 
 with col2:
-    st.subheader("📋 Автомобиль")
-    car_name = st.text_input("Марка и Модель", value=st.session_state.data["brand"])
-    year = st.number_input("Год", 2000, 2026, value=st.session_state.data["data"]["year"] if "data" in st.session_state.data else st.session_state.data["year"])
-    engine = st.number_input("Двигатель (L)", 0.1, 10.0, value=st.session_state.data["engine"])
+    st.subheader("📋 Автомобіль")
+    brand = st.text_input("Марка і Модель", value=st.session_state.car["brand"])
+    # Використовуємо змінні з сесії з перевіркою
+    year = st.number_input("Рік", 2000, 2026, value=int(st.session_state.car["year"]))
+    engine = st.number_input("Двигун (L)", 0.1, 10.0, value=float(st.session_state.car["engine"]))
 
 with col3:
-    st.subheader("🧾 Сборы и Налоги")
-    customs = st.number_input("Растаможка, $", value=4000)
-    broker = st.number_input("Брокер + Экспедитор, $", value=800)
+    st.subheader("🧾 Оплати")
+    customs = st.number_input("Растаможка, $", value=3500)
+    broker = st.number_input("Брокер + Експедитор, $", value=800)
     paid = st.number_input("Уже оплачено, $", value=0)
 
-# Математика
+# Розрахунок
 fee = get_auction_fee(bid)
 tow = TOWING_DATA[state]
 sea = SEA_FREIGHT[port]
@@ -128,11 +119,9 @@ total = bid + fee + tow + sea + 166 + 50 + customs + broker
 
 st.markdown("---")
 res1, res2, res3 = st.columns(3)
-res1.metric("АВТОМОБИЛЬ", f"{car_name} {year}")
-res2.metric("ИТОГО (ALL IN)", f"${total:,.0f}")
-res3.metric("ЛОКАЦИЯ ОТПРАВКИ", state)
+res1.metric("АВТО", f"{brand} {year}")
+res2.metric("ИТОГО ПО КЛЮЧУ", f"${total:,.0f}")
+res3.metric("ЛОКАЦІЯ", state)
 
-# Блок для отправки клиенту
-with st.expander("📲 Сформировать отчет для клиента"):
-    report = f"🚗 {car_name} {year}\n📍 Аукцион: {state}\n💰 Ставка: ${bid}\n🚛 Доставка до порта + Море: ${tow+sea}\n🏛️ Растаможка: ${customs}\n🏁 ИТОГО ПОД КЛЮЧ: ${total}"
-    st.code(report)
+with st.expander("📲 Звіт для клієнта"):
+    st.code(f"🚗 {brand} {year}\n📍 Аукціон: {state}\n💰 Ставка: ${bid}\n🚛 Логістика: ${tow+sea}\n🏁 TOTAL: ${total}")
