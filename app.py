@@ -3,7 +3,7 @@ import streamlit as st
 # Налаштування PrimeBrok
 st.set_page_config(page_title="PrimeBrok Calculator", page_icon="📈", layout="wide")
 
-# --- ПОВНА БАЗА ЛОКАЦІЙ (Абсолютно всі основні майданчики) ---
+# --- ПОВНА БАЗА ЛОКАЦІЙ ---
 ALL_LOCATIONS = sorted([
     "ABILENE", "ABILENE (TX)", "ACE - CARSON (CA)", "ACE - PERRIS (CA)", "ADELANTO", "ADRIAN", "AFTON", "AKRON-CANTON (OH)", 
     "ALBANY", "ALBANY (NY)", "ALBUQUERQUE", "ALBUQUERQUE (NM)", "ALEXANDRIA", "ALTOONA", "ALTOONA (PA)", "AMARILLO", 
@@ -53,4 +53,29 @@ with col2:
     bid = st.number_input("Ставка (B5), $", min_value=0, value=2000, step=100)
     engine = st.text_input("Об'єм двигуна (D3)", "2.0")
     body = st.selectbox("Тип кузова (E4)", ["------", "SUV"])
-    fuel = st.
+    fuel = st.selectbox("Паливо / Завантаження (F4)", ["GAS", "Diesel", "HYB", "EV", "2", "3"])
+
+with col3:
+    st.subheader("💰 Витрати")
+    auction_fee = st.number_input("Збір Аукціону (C6), $", value=630)
+    swift = st.number_input("Swift (C7), $", value=166)
+    insurance = st.number_input("Страхування (C13), $", value=50)
+    customs = st.number_input("Митні платежі (C15), $", value=4504)
+    paid = st.number_input("Скільки оплачено (F3), $", value=0)
+
+# --- РОЗРАХУНОК ---
+total_all_in = bid + auction_fee + swift + insurance + customs
+debt = total_all_in - paid
+
+st.markdown("---")
+res_col1, res_col2, res_col3 = st.columns(3)
+
+with res_col1:
+    st.metric("ALL IN (З митом)", f"${total_all_in:,.0f}")
+with res_col2:
+    st.metric("БЕЗ МИТНИЦІ", f"${total_all_in - customs:,.0f}")
+with res_col3:
+    if debt > 0:
+        st.error(f"DEBT (БОРГ): ${debt:,.0f}")
+    else:
+        st.success("ОПЛАЧЕНО ПОВНІСТЮ")
