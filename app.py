@@ -3,151 +3,157 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-# --- НАСТРОЙКИ СТОРІНКИ ---
-st.set_page_config(page_title="PrimeBrok Logistics Pro", page_icon="⚓", layout="wide")
+# --- НАСТРОЙКИ СТРАНИЦЫ ---
+st.set_page_config(page_title="PrimeBrok Logistics AI", page_icon="🚛", layout="wide")
 
-# --- ЛОГІКА СКЛАДІВ ТА ПОРТІВ (З ВАШОЇ ТАБЛИЦІ) ---
-# Ключ: Порт виходу в США. Значення: Ціна евакуатора (середня по штату до цього порту)
+# --- ЛОГИКА ТАРИФОВ И ПОРТОВ ---
+# Порты вылета в США и стоимость эвакуатора до них (базовая)
 US_EXIT_PORTS = {
-    "Port of Newark (NJ)": 175,
-    "Port of Savannah (GA)": 250,
-    "Port of Houston (TX)": 325,
-    "Port of Los Angeles (CA)": 450,
-    "Port of Miami (FL)": 275,
-    "Port of Chicago (IL)": 350
+    "NJ - Port of Newark": 175,
+    "GA - Port of Savannah": 250,
+    "TX - Port of Houston": 325,
+    "CA - Port of Los Angeles": 450,
+    "FL - Port of Miami": 275,
+    "IL - Port of Chicago": 350
 }
 
-# Карта відповідності штатів до найближчих портів виходу
-STATE_TO_EXIT_PORT = {
-    "NJ": "Port of Newark (NJ)", "NY": "Port of Newark (NJ)", "PA": "Port of Newark (NJ)",
-    "GA": "Port of Savannah (GA)", "SC": "Port of Savannah (GA)",
-    "TX": "Port of Houston (TX)", "LA": "Port of Houston (TX)",
-    "CA": "Port of Los Angeles (CA)", "WA": "Port of Los Angeles (CA)",
-    "FL": "Port of Miami (FL)",
-    "IL": "Port of Chicago (IL)", "OH": "Port of Chicago (IL)"
+# Привязка штатов к ближайшим портам
+STATE_TO_PORT_MAP = {
+    "NJ": "NJ - Port of Newark", "NY": "NJ - Port of Newark", "PA": "NJ - Port of Newark", "CT": "NJ - Port of Newark",
+    "GA": "GA - Port of Savannah", "SC": "GA - Port of Savannah", "NC": "GA - Port of Savannah",
+    "TX": "TX - Port of Houston", "LA": "TX - Port of Houston", "OK": "TX - Port of Houston",
+    "CA": "CA - Port of Los Angeles", "WA": "CA - Port of Los Angeles", "OR": "CA - Port of Los Angeles", "AZ": "CA - Port of Los Angeles",
+    "FL": "FL - Port of Miami",
+    "IL": "IL - Port of Chicago", "WI": "IL - Port of Chicago", "MI": "IL - Port of Chicago", "IN": "IL - Port of Chicago"
 }
 
-SEA_FREIGHT = {
+EUROPE_PORTS = {
     "Constanta (Romania)": 2850,
     "Odesa (Ukraine)": 3100,
     "Klaipeda (Lithuania)": 2950
 }
 
 def get_auction_fee(bid):
-    if bid < 100: return 50
-    elif bid < 1000: return 350
-    elif bid < 2000: return 540
-    elif bid < 5000: return 790
-    return 950
+    if bid < 500: return 200
+    if bid < 1000: return 350
+    if bid < 2000: return 550
+    if bid < 4000: return 750
+    return 900
 
-# --- РОБОТ-ЛОГІСТ v5.0 ---
-def fetch_full_logic(url):
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+# --- УЛУЧШЕННЫЙ РОБОТ-ПАРСЕР v6.0 ---
+def scrape_auction_lot(url):
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            text = soup.get_text().upper()
-            
-            # Пошук локації аукціона (місто, штат)
-            auction_loc = "Unknown"
-            state_found = "NJ"
-            # Шукаємо комбінації типу "HOUSTON, TX" або "NEWARK, NJ"
-            loc_match = re.search(r'([A-Z\s]+),\s([A-Z]{2})', text)
+            # Берем текст только из основной части, чтобы не цеплять даты из футера
+            main_content = soup.find('body').get_text(separator=' ').upper()
+            title = soup.title.string.upper() if soup.title else ""
+
+            # Ищем ГОД (строго перед названием или в заголовке, исключая 2024-2026)
+            years = re.findall(r'\b(200\d|201\d|202[0-4])\b', title + " " + main_content[:1000])
+            year = int(years[0]) if years else 2015
+
+            # Ищем МАРКУ/МОДЕЛЬ
+            brand = "АВТОМОБИЛЬ"
+            car_match = re.search(rf'{year}\s+([A-Z0-9\s\-]{{3,25}})\s+', title)
+            if car_match: brand = car_match.group(1).strip()
+
+            # Ищем ДВИГАТЕЛЬ (X.X L)
+            eng_match = re.search(r'(\d\.\d)L', main_content)
+            engine = float(eng_match.group(1)) if eng_match else 2.0
+
+            # Ищем ЛОКАЦИЮ (City, ST)
+            state = "NJ"
+            city_state = "UNKNOWN, NJ"
+            loc_match = re.search(r'([A-Z\s]{2,15}),\s([A-Z]{2})', main_content)
             if loc_match:
-                auction_loc = f"{loc_match.group(1).strip()}, {loc_match.group(2)}"
-                state_found = loc_match.group(2)
-
-            # Визначаємо порт виходу на основі штату
-            exit_port = STATE_TO_EXIT_PORT.get(state_found, "Port of Newark (NJ)")
-
-            # Дані авто
-            year_match = re.search(r'(20\d{2})', text)
-            year = max(2000, min(2026, int(year_match.group(1)))) if year_match else 2018
-            
-            engine_match = re.search(r'(\d\.\d)L', text)
-            engine = float(engine_match.group(1)) if engine_match else 2.0
+                city_state = f"{loc_match.group(1).strip()}, {loc_match.group(2)}"
+                state = loc_match.group(2)
 
             return {
-                "auction_loc": auction_loc,
-                "exit_port": exit_port,
-                "year": year,
-                "engine": engine,
+                "year": year, "brand": brand, "engine": engine,
+                "auction_city": city_state,
+                "exit_port": STATE_TO_PORT_MAP.get(state, "NJ - Port of Newark"),
                 "status": "success"
             }
-    except:
-        pass
+    except Exception as e:
+        print(f"Scraping error: {e}")
     return {"status": "error"}
 
-# --- СЕСІЯ ---
-if 'logistics' not in st.session_state:
-    st.session_state.logistics = {
-        "auction_loc": "Оберіть лот", 
-        "exit_port": "Port of Newark (NJ)", 
-        "year": 2018, "engine": 2.0
-    }
+# --- ИНТЕРФЕЙС ---
+if 'lot' not in st.session_state:
+    st.session_state.lot = {"year": 2015, "brand": "", "engine": 2.0, "auction_city": "Вставьте ссылку", "exit_port": "NJ - Port of Newark"}
 
-st.title("🏯 PrimeBrok: Повний логістичний ланцюг")
+st.title("🏯 PrimeBrok: Полная Логистическая Цепочка")
 
-url_input = st.text_input("🔗 Посилання на лот для повного прорахунку шляху")
+url = st.text_input("🔗 Ссылка на лот (Copart/IAAI)")
 
-if url_input and st.button("🚀 РОЗРАХУВАТИ ЛОГІСТИКУ"):
-    with st.spinner("Прокладаю маршрут США -> Європа..."):
-        res = fetch_full_logic(url_input)
-        if res["status"] == "success":
-            st.session_state.logistics = res
-            st.success(f"✅ Маршрут знайдено: {res['auction_loc']} -> {res['exit_port']}")
+if url and st.button("🚀 ПОЛУЧИТЬ ДАННЫЕ И ПРОЛОЖИТЬ ПУТЬ"):
+    with st.spinner("Робот сканирует аукцион..."):
+        data = scrape_auction_lot(url)
+        if data["status"] == "success":
+            st.session_state.lot = data
+            st.success("✅ Данные лота и маршрут обновлены!")
 
 st.markdown("---")
 
+# --- ВИЗУАЛИЗАЦИЯ ПУТИ ---
+st.subheader("🗺️ Маршрут следования")
+c1, c2, c3 = st.columns([1, 0.2, 1])
+c1.info(f"📍 **АУКЦИОН:** {st.session_state.lot['auction_city']}")
+c2.write("➡️")
+c3.success(f"⚓ **ПОРТ США:** {st.session_state.lot['exit_port']}")
+
+st.markdown("---")
+
+# --- ДЕТАЛЬНЫЙ РАСЧЕТ ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.subheader("🇺🇸 Логістика в США")
-    # Показуємо конкретне місто аукціона
-    st.warning(f"📍 Аукціон: {st.session_state.logistics['auction_loc']}")
-    
+    st.subheader("🇺🇸 Эвакуатор и Аукцион")
     bid = st.number_input("Ставка (Bid), $", min_value=0, value=2000)
-    
-    # Вибір порта виходу (автоматично підтягнутий)
-    exit_list = list(US_EXIT_PORTS.keys())
-    exit_idx = exit_list.index(st.session_state.logistics["exit_port"])
-    selected_exit = st.selectbox("ПОРТ ВИХОДУ (Склад США)", exit_list, index=exit_idx)
-    
-    # Порт призначення
-    selected_dest = st.selectbox("ПОРТ ПРИБУТТЯ (Європа)", list(SEA_FREIGHT.keys()))
+    # Авто-выбор порта на основе локации лота
+    port_list = list(US_EXIT_PORTS.keys())
+    port_idx = port_list.index(st.session_state.lot["exit_port"])
+    selected_us_port = st.selectbox("Склад/Порт в США (TOW TO)", port_list, index=port_idx)
+    tow_price = US_EXIT_PORTS[selected_us_port]
 
 with col2:
-    st.subheader("📋 Дані авто")
-    year = st.number_input("Рік", 2000, 2026, value=int(st.session_state.logistics["year"]))
-    engine = st.number_input("Двигун (L)", 0.1, 10.0, value=float(st.session_state.logistics["engine"]))
-    fuel = st.selectbox("Паливо", ["Бензин", "Дизель", "Електро", "Гібрид"])
+    st.subheader("🚢 Море и Тех.данные")
+    dest_port = st.selectbox("Порт назначения (EUROPE)", list(EUROPE_PORTS.keys()))
+    car_name = st.text_input("Марка/Модель", value=st.session_state.lot["brand"])
+    year = st.number_input("Год", 2000, 2026, value=int(st.session_state.lot["year"]))
+    engine = st.number_input("Объем (L)", 0.1, 10.0, value=float(st.session_state.lot["engine"]))
 
 with col3:
-    st.subheader("💰 Витрати")
-    customs = st.number_input("Мито (Растаможка), $", value=3500)
-    service = st.number_input("Брокер + Експедитор, $", value=800)
-    paid = st.number_input("Вже сплачено, $", value=0)
+    st.subheader("🏛️ Налоги и Финал")
+    customs = st.number_input("Растаможка, $", value=3500)
+    fees = st.number_input("Брокер + Экспедитор, $", value=800)
+    paid = st.number_input("Уже оплачено клиентом, $", value=0)
 
-# Розрахунок
+# Математика
 auction_fee = get_auction_fee(bid)
-tow_to_port = US_EXIT_PORTS[selected_exit] # Ціна евакуатора до обраного порта
-sea_cost = SEA_FREIGHT[selected_dest] # Ціна моря
-total = bid + auction_fee + tow_to_port + sea_cost + 166 + 50 + customs + service
+sea_price = EUROPE_PORTS[dest_port]
+total = bid + auction_fee + tow_price + sea_price + 166 + 50 + customs + fees
 
 st.markdown("---")
 res1, res2, res3 = st.columns(3)
-res1.metric("МАРШРУТ", f"{selected_exit} ➡️ {selected_dest.split(' ')[0]}")
-res2.metric("ВСЬОГО (ALL IN)", f"${total:,.0f}")
-res3.metric("ЕВАКУАТОР (TOW)", f"${tow_to_port}")
+res1.metric("ИТОГО ПО КЛЮЧУ", f"${total:,.0f}")
+res2.metric("СТОИМОСТЬ TOW", f"${tow_price}")
+res3.metric("ОСТАТОК К ОПЛАТЕ", f"${total - paid:,.0f}")
 
-with st.expander("📝 Детальний маршрут для клієнта"):
-    report = f"""
-    📍 Локація лота: {st.session_state.logistics['auction_loc']}
-    🚛 Евакуатор до порту: {selected_exit} — ${tow_to_port}
-    🚢 Морський фрахт: {selected_dest} — ${sea_cost}
-    -------------------------------------------
-    💰 Ставка: ${bid} | Збори: ${auction_fee} | Мито: ${customs}
-    🏁 ПІДСУМОК: ${total}
+with st.expander("📝 Готовый текст для клиента (Copy/Paste)"):
+    client_text = f"""
+🚗 **{car_name} {year} ({engine}L)**
+📍 **Локация:** {st.session_state.lot['auction_city']}
+-------------------------------------------
+💰 **Аукцион:** ${bid} (ставка) + ${auction_fee} (сбор) + $166 (swift)
+🚛 **Транзит США:** ${tow_price} (в {selected_us_port})
+🚢 **Море:** ${sea_price} (в {dest_port})
+🏛️ **Растаможка + Сервис:** ${customs + fees}
+-------------------------------------------
+🏁 **ИТОГО ПОД КЛЮЧ: ${total:,.0f}**
     """
-    st.code(report)
+    st.code(client_text)
