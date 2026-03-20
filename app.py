@@ -1,7 +1,7 @@
 import streamlit as st
 
 # --- ПОВНА БАЗА ЛОКАЦІЙ (TOW) ---
-# Для кожного міста вказані ціни трала до ваших 5 портів
+# Ваші 5 портів: NJ, GA, TX, CA, WA
 TOWING_DATA = {
     "Baltimore (MD)": {"NJ": 325, "GA": 750, "TX": 1250, "CA": 2400, "WA": 2600},
     "Richmond (VA)": {"NJ": 450, "GA": 600, "TX": 1100, "CA": 2300, "WA": 2500},
@@ -10,9 +10,10 @@ TOWING_DATA = {
     "Houston (TX)": {"NJ": 1200, "GA": 850, "TX": 200, "CA": 1450, "WA": 1950},
     "Los Angeles (CA)": {"NJ": 2400, "GA": 2100, "TX": 1450, "CA": 200, "WA": 1100},
     "Seattle (WA)": {"NJ": 2600, "GA": 2500, "TX": 1950, "CA": 1100, "WA": 250},
+    "Miami (FL)": {"NJ": 950, "GA": 450, "TX": 1100, "CA": 2600, "WA": 2800},
 }
 
-# Вартість морю (фрахт) до Констанци за портами
+# Вартість моря (фрахт) до порту призначення (напр. Констанца)
 SEA_RATES = {
     "NJ": 1150,
     "GA": 1250,
@@ -21,73 +22,92 @@ SEA_RATES = {
     "WA": 1500
 }
 
-# --- ЛОГІКА PRIME BROK ---
+# --- ЛОГІКА РОЗРАХУНКІВ PRIME BROK ---
 
 def get_auction_fee(bid):
+    # Динамічна сітка (приклад з вашої таблиці BASE)
     if bid < 500: return 185
     if bid < 1000: return 320
+    if bid < 2000: return 485
     if bid < 3000: return 550
     if bid < 5000: return 750
     return bid * 0.14
 
 def calc_customs(bid, engine, vol, yr):
-    # Гібрид = Бензин (Мито), Електро = 0
+    # Гібрид рахується як бензин по миту (Ваша умова)
     calc_type = "Бензин" if engine == "Гібрид" else engine
-    if calc_type == "Електро": return 0
+    if calc_type == "Електро": return 0 # Пільга
     
     age = 2026 - yr
     if age <= 0: age = 1
     coeff = 50 if calc_type == "Бензин" else 75
+    
     accise = (vol / 1000) * coeff * (age if age <= 15 else 15)
     duty = bid * 0.10
     vat = (bid + duty + accise) * 0.20
     return accise + duty + vat
 
-# --- ІНТЕРФЕЙС ---
+# --- ІНТЕРФЕЙС САЙТУ ---
 
-st.set_page_config(page_title="PrimeBrok Pro", layout="wide")
-st.title("🚢 PrimeBrok: Розумна Логістика (NJ, GA, TX, CA, WA)")
+st.set_page_config(page_title="PrimeBrok - Калькулятор авто", layout="wide", page_icon="🚢")
 
-with st.sidebar:
-    st.header("📋 Параметри")
-    bid = st.number_input("Ставка ($)", value=5000)
-    engine = st.selectbox("Двигун", ["Бензин", "Дизель", "Гібрид", "Електро"])
-    body = st.selectbox("Кузов", ["Седан", "SUV / Кросовер"])
-    year = st.number_input("Рік", 2010, 2026, 2020)
-    volume = st.number_input("Об'єм (см³)", value=2000)
-    city = st.selectbox("Місто аукціону", sorted(list(TOWING_DATA.keys())))
+# Стилізація
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    h1 { color: #ffffff; text-align: center; font-family: 'Arial'; }
+    .stMetric { border: 1px solid #30363d; padding: 10px; border-radius: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# РОЗРАХУНОК
+st.title("🚢 PrimeBrok")
+st.write("<p style='text-align: center;'>Професійний розрахунок вартості авто зі США під ключ</p>", unsafe_allow_html=True)
+
+# Введення даних
+col_left, col_right = st.columns([2, 1])
+
+with col_left:
+    st.subheader("📋 Параметри лота")
+    c1, c2 = st.columns(2)
+    with c1:
+        bid = st.number_input("Ставка на аукціоні ($)", value=5000, step=100)
+        engine = st.selectbox("Тип двигуна", ["Бензин", "Дизель", "Гібрид", "Електро"])
+        year = st.number_input("Рік випуску", 2010, 2026, 2020)
+    with c2:
+        city = st.selectbox("Місто аукціону (Location)", sorted(list(TOWING_DATA.keys())))
+        body = st.selectbox("Тип кузова", ["Седан", "SUV / Кросовер"])
+        volume = st.number_input("Об'єм двигуна (см³)", value=2000)
+
+# --- РОЗРАХУНОК ЛОГІКИ ---
 possible_ports = TOWING_DATA[city]
-# Знаходимо найвигідніший порт для цього міста
+# Шукаємо найвигідніший порт для цього міста (Суша + Море)
 best_port = min(possible_ports, key=lambda k: possible_ports[k] + SEA_RATES[k])
 land_cost = possible_ports[best_port]
 
-# Націнка за кузов
+# Націнка за SUV
 if body == "SUV / Кросовер": land_cost += 150
 
-# Гібрид/Електро: Доставка дорожча (+200 за вашою логікою)
+# Гібрид / Електро: Дорожча доставка (+200$), але мито за специфікою
 is_special = engine in ["Електро", "Гібрид"]
 if is_special: land_cost += 200
 
 sea_cost = SEA_RATES[best_port]
+auction_fee = get_auction_fee(bid)
 customs = calc_customs(bid, engine, volume, year)
-total = bid + get_auction_fee(bid) + land_cost + sea_cost + 166 + customs
+swift = 166
 
-# ВИВІД
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.metric("Трал (Суша)", f"${int(land_cost)}")
-    st.caption(f"Напрямок: {city} ➔ {best_port}")
-with c2:
-    st.metric("Морський фрахт", f"${int(sea_cost)}")
-    st.caption(f"Порт відправки: {best_port}")
-with c3:
-    st.metric("Митні платежі", f"${int(customs)}")
-    st.caption("По бензиновій сітці" if engine == "Гібрид" else "")
+total_cost = bid + auction_fee + land_cost + sea_cost + swift + customs
 
-st.divider()
-st.success(f"## 🔥 ПІДСУМКОВА ВАРТІСТЬ ALL IN: ${int(total)}")
+# --- ВИВІД РЕЗУЛЬТАТІВ ---
+with col_right:
+    st.subheader("💰 Розрахунок")
+    st.metric("Аукціон + Swift", f"${int(bid + auction_fee + swift)}")
+    st.metric("Логістика (Суша+Море)", f"${int(land_cost + sea_cost)}")
+    st.metric("Розмитнення", f"${int(customs)}")
+    st.divider()
+    st.success(f"### ВСЬОГО (ALL IN): ${int(total_cost)}")
+    
+    if is_special:
+        st.info("💡 **Гібрид/Електро**: Доставка дорожча, мито розраховано за пільговими правилами.")
 
-if is_special:
-    st.info("💡 Увага: Для Гібридів та Електрокарів логістика розрахована за спеціальним тарифом.")
+st.caption(f"Автоматичний вибір оптимального порту: **{best_port}**. Розрахунок PrimeBrok не включає брокерські послуги.")
