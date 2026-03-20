@@ -1,31 +1,27 @@
 import streamlit as st
 
-# --- ПОВНА РОЗУМНА БАЗА ЛОКАЦІЙ (TOW + PORTS) ---
-# Для кожного міста вказано порти, куди найвигідніше везти
-LOCATIONS = {
-    "Baltimore (MD)": {"port": "Baltimore", "land_price": 150},
-    "Richmond (VA)": {"port": "Baltimore", "land_price": 350},
-    "Alexandria (VA)": {"port": "Baltimore", "land_price": 250},
-    "New York (NY)": {"port": "NJ", "land_price": 200},
-    "Bridgeport (PA)": {"port": "NJ", "land_price": 250},
-    "Atlanta (GA)": {"port": "Savannah", "land_price": 250},
-    "Savannah (GA)": {"port": "Savannah", "land_price": 150},
-    "Houston (TX)": {"port": "Houston", "land_price": 200},
-    "Dallas (TX)": {"port": "Houston", "land_price": 350},
-    "Los Angeles (CA)": {"port": "Long Beach", "land_price": 200},
-    "Chicago (IL)": {"port": "NJ", "land_price": 750},
+# --- ПОВНА БАЗА ЛОКАЦІЙ (TOW) ---
+# Для кожного міста вказані ціни трала до ваших 5 портів
+TOWING_DATA = {
+    "Baltimore (MD)": {"NJ": 325, "GA": 750, "TX": 1250, "CA": 2400, "WA": 2600},
+    "Richmond (VA)": {"NJ": 450, "GA": 600, "TX": 1100, "CA": 2300, "WA": 2500},
+    "Atlanta (GA)": {"NJ": 850, "GA": 250, "TX": 850, "CA": 2100, "WA": 2400},
+    "Chicago (IL)": {"NJ": 750, "GA": 850, "TX": 1050, "CA": 1850, "WA": 1950},
+    "Houston (TX)": {"NJ": 1200, "GA": 850, "TX": 200, "CA": 1450, "WA": 1950},
+    "Los Angeles (CA)": {"NJ": 2400, "GA": 2100, "TX": 1450, "CA": 200, "WA": 1100},
+    "Seattle (WA)": {"NJ": 2600, "GA": 2500, "TX": 1950, "CA": 1100, "WA": 250},
 }
 
-# Вартість мови (фрахт) до Констанци/Одеси залежно від порту США
-SEA_FREIGHT = {
-    "Baltimore": 1250,
-    "NJ": 1200,
-    "Savannah": 1300,
-    "Houston": 1350,
-    "Long Beach": 1650
+# Вартість морю (фрахт) до Констанци за портами
+SEA_RATES = {
+    "NJ": 1150,
+    "GA": 1250,
+    "TX": 1200,
+    "CA": 1400,
+    "WA": 1500
 }
 
-# --- ЛОГІЧНІ ФУНКЦІЇ ---
+# --- ЛОГІКА PRIME BROK ---
 
 def get_auction_fee(bid):
     if bid < 500: return 185
@@ -35,9 +31,9 @@ def get_auction_fee(bid):
     return bid * 0.14
 
 def calc_customs(bid, engine, vol, yr):
-    # Гібрид = Бензинове мито (Ваша умова)
+    # Гібрид = Бензин (Мито), Електро = 0
     calc_type = "Бензин" if engine == "Гібрид" else engine
-    if calc_type == "Електро": return 0 # Пільга
+    if calc_type == "Електро": return 0
     
     age = 2026 - yr
     if age <= 0: age = 1
@@ -50,52 +46,48 @@ def calc_customs(bid, engine, vol, yr):
 # --- ІНТЕРФЕЙС ---
 
 st.set_page_config(page_title="PrimeBrok Pro", layout="wide")
+st.title("🚢 PrimeBrok: Розумна Логістика (NJ, GA, TX, CA, WA)")
 
-st.title("🚢 PrimeBrok: Розумний Калькулятор")
-st.markdown("---")
+with st.sidebar:
+    st.header("📋 Параметри")
+    bid = st.number_input("Ставка ($)", value=5000)
+    engine = st.selectbox("Двигун", ["Бензин", "Дизель", "Гібрид", "Електро"])
+    body = st.selectbox("Кузов", ["Седан", "SUV / Кросовер"])
+    year = st.number_input("Рік", 2010, 2026, 2020)
+    volume = st.number_input("Об'єм (см³)", value=2000)
+    city = st.selectbox("Місто аукціону", sorted(list(TOWING_DATA.keys())))
 
-col_in, col_out = st.columns([2, 1])
+# РОЗРАХУНОК
+possible_ports = TOWING_DATA[city]
+# Знаходимо найвигідніший порт для цього міста
+best_port = min(possible_ports, key=lambda k: possible_ports[k] + SEA_RATES[k])
+land_cost = possible_ports[best_port]
 
-with col_in:
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("🏎 Авто")
-        bid = st.number_input("Ставка ($)", value=6000)
-        engine = st.selectbox("Двигун", ["Бензин", "Дизель", "Гібрид", "Електро"])
-        year = st.number_input("Рік", 2010, 2026, 2021)
-        volume = st.number_input("Об'єм (см³)", value=2000)
-    with c2:
-        st.subheader("📍 Локація")
-        city = st.selectbox("Місто аукціону", list(LOCATIONS.keys()))
-        body = st.selectbox("Тип кузова", ["Седан", "SUV / Кросовер"])
-
-# --- РОЗРАХУНОК ---
-loc = LOCATIONS[city]
-port_name = loc['port']
-land_cost = loc['land_price']
-
-# Корекція на SUV
+# Націнка за кузов
 if body == "SUV / Кросовер": land_cost += 150
 
-# Корекція на Гібрид/Електро (Дорожча доставка)
+# Гібрид/Електро: Доставка дорожча (+200 за вашою логікою)
 is_special = engine in ["Електро", "Гібрид"]
-if is_special: land_cost += 200 
+if is_special: land_cost += 200
 
-ocean_cost = SEA_FREIGHT[port_name]
-a_fee = get_auction_fee(bid)
+sea_cost = SEA_RATES[best_port]
 customs = calc_customs(bid, engine, volume, year)
-total = bid + a_fee + land_cost + ocean_cost + 166 + customs
+total = bid + get_auction_fee(bid) + land_cost + sea_cost + 166 + customs
 
-with col_out:
-    st.subheader("💰 Розрахунок")
-    st.metric("Витрати США", f"${int(bid + a_fee + 166)}")
-    st.metric(f"Трал до порту {port_name}", f"${int(land_cost)}")
-    st.metric("Фрахт (Море)", f"${int(ocean_cost)}")
-    st.metric("Мито (Україна)", f"${int(customs)}")
-    st.divider()
-    st.success(f"### РАЗОМ: ${int(total)}")
-    
-    if engine == "Гібрид":
-        st.info("💡 Гібрид: Доставка за тарифом Електро, мито як за Бензин.")
+# ВИВІД
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.metric("Трал (Суша)", f"${int(land_cost)}")
+    st.caption(f"Напрямок: {city} ➔ {best_port}")
+with c2:
+    st.metric("Морський фрахт", f"${int(sea_cost)}")
+    st.caption(f"Порт відправки: {best_port}")
+with c3:
+    st.metric("Митні платежі", f"${int(customs)}")
+    st.caption("По бензиновій сітці" if engine == "Гібрид" else "")
 
-st.caption(f"Логіка: Авто з {city} відправляється через порт {port_name}, що є оптимальним за ціною.")
+st.divider()
+st.success(f"## 🔥 ПІДСУМКОВА ВАРТІСТЬ ALL IN: ${int(total)}")
+
+if is_special:
+    st.info("💡 Увага: Для Гібридів та Електрокарів логістика розрахована за спеціальним тарифом.")
