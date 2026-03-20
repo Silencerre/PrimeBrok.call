@@ -1,80 +1,134 @@
 import streamlit as st
 
-# --- ЛОГІКА РОЗРАХУНКІВ (БЕЗ КОМІСІЇ) ---
+# --- ПОВНА БАЗА ДАНИХ (ЛОГІКА ТАБЛИЦІ TOW) ---
+# База основних локацій та тарифів до найближчих портів
+LOCATIONS = {
+    "Abilene (TX)": {"port": "TX", "price": 375},
+    "Adelanto (CA)": {"port": "CA", "price": 275},
+    "Albuquerque (NM)": {"port": "TX", "price": 850},
+    "Alexandria (VA)": {"port": "NJ", "price": 425},
+    "Atlanta (GA)": {"port": "GA", "price": 250},
+    "Baltimore (MD)": {"port": "NJ", "price": 325},
+    "Billings (MT)": {"port": "WA", "price": 950},
+    "Boise (ID)": {"port": "WA", "price": 850},
+    "Bridgeport (PA)": {"port": "NJ", "price": 225},
+    "Casper (WY)": {"port": "TX", "price": 1100},
+    "Charleston (SC)": {"port": "GA", "price": 350},
+    "Chicago (IL)": {"port": "NJ", "price": 750},
+    "Columbus (OH)": {"port": "NJ", "price": 650},
+    "Dallas (TX)": {"port": "TX", "price": 325},
+    "Denver (CO)": {"port": "TX", "price": 950},
+    "Detroit (MI)": {"port": "NJ", "price": 700},
+    "Eugene (OR)": {"port": "WA", "price": 450},
+    "Houston (TX)": {"port": "TX", "price": 200},
+    "Indianapolis (IN)": {"port": "NJ", "price": 750},
+    "Jacksonville (FL)": {"port": "GA", "price": 375},
+    "Las Vegas (NV)": {"port": "CA", "price": 450},
+    "Los Angeles (CA)": {"port": "CA", "price": 200},
+    "Miami (FL)": {"port": "GA", "price": 650},
+    "Nashville (TN)": {"port": "GA", "price": 550},
+    "New Orleans (LA)": {"port": "TX", "price": 550},
+    "New York (NY)": {"port": "NJ", "price": 250},
+    "Oklahoma City (OK)": {"port": "TX", "price": 450},
+    "Orlando (FL)": {"port": "GA", "price": 550},
+    "Philadelphia (PA)": {"port": "NJ", "price": 250},
+    "Phoenix (AZ)": {"port": "CA", "price": 550},
+    "Portland (OR)": {"port": "WA", "price": 350},
+    "Richmond (VA)": {"port": "NJ", "price": 450},
+    "Salt Lake City (UT)": {"port": "CA", "price": 850},
+    "San Antonio (TX)": {"port": "TX", "price": 350},
+    "San Diego (CA)": {"port": "CA", "price": 350},
+    "Seattle (WA)": {"port": "WA", "price": 250},
+    "St. Louis (MO)": {"port": "TX", "price": 850},
+    "Washington (DC)": {"port": "NJ", "price": 400}
+}
+
+# --- ФУНКЦІЇ РОЗРАХУНКУ ---
 
 def get_auction_fee(bid):
-    # Стандартна сітка зборів Copart/IAAI (можна підправити під ваші точні цифри)
-    if bid <= 500: return 175
-    elif bid <= 1000: return 250
-    elif bid <= 1500: return 365
-    elif bid <= 2000: return 450
-    elif bid <= 4000: return 600
-    elif bid <= 5000: return 700
-    else: return bid * 0.12 # Приблизно 12% для високих ставок
+    # Динамічна сітка зборів (Вкладка BASE)
+    if bid < 100: return 1
+    if bid < 500: return 180
+    if bid < 1000: return 300
+    if bid < 2000: return 480
+    if bid < 3000: return 580
+    if bid < 4000: return 680
+    if bid < 5000: return 780
+    return bid * 0.15
 
-def calculate_ua_tax(bid, engine_type, volume, year):
-    # Базове розмитнення Україна
-    age_coeff = 2026 - year
-    if age_coeff <= 0: age_coeff = 1
-    if age_coeff > 15: age_coeff = 15
+def calc_customs(bid, engine, vol, yr):
+    # Гібрид рахується як бензин (Ваша умова)
+    calc_type = "Бензин" if engine == "Гібрид" else engine
+    if calc_type == "Електро": return 0
     
-    if engine_type == "Електро":
-        return 0 # Пільга на електрокари (тільки акциз 1 євро за кВт, що майже 0)
+    age = 2026 - yr
+    if age <= 0: age = 1
+    coeff = 50 if calc_type == "Бензин" else 75
     
-    base_tax = 50 if engine_type == "Бензин" else 75
-    accise = (volume / 1000) * base_tax * age_coeff
+    accise = (vol / 1000) * coeff * (age if age <= 15 else 15)
     duty = bid * 0.10
     vat = (bid + duty + accise) * 0.20
     return accise + duty + vat
 
-# --- ВІЗУАЛЬНА ЧАСТИНА (STREAMLIT) ---
+# --- ІНТЕРФЕЙС PRIME BROK ---
 
-st.set_page_config(page_title="PrimeBrok Calc", page_icon="🚢")
+st.set_page_config(page_title="PrimeBrok Calculator", layout="wide")
 
-# Стиль заголовка
-st.markdown("<h1 style='text-align: center; color: #1E1E1E;'>🚢 PrimeBrok</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Калькулятор собівартості авто зі США (без прихованих комісій)</p>", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e1117; color: white; }
+    .stMetric { background-color: #1e2130; padding: 15px; border-radius: 10px; }
+    </style>
+""", unsafe_allow_html=True)
 
-# Розподіл на колонки для вводу
-col1, col2 = st.columns(2)
+st.title("🚢 PrimeBrok Pro")
+st.write("### Система точного прорахунку вартості авто")
 
-with col1:
-    st.subheader("💵 Аукціон")
-    bid = st.number_input("Ставка на аукціоні ($)", min_value=100, value=5000, step=100)
-    engine = st.selectbox("Двигун", ["Бензин", "Дизель", "Електро", "Гібрид"])
-    year = st.number_input("Рік випуску", min_value=2000, max_value=2026, value=2019)
-    volume = st.number_input("Об'єм (см³)", value=2000, step=100)
+col_main, col_res = st.columns([2, 1])
 
-with col2:
-    st.subheader("🚚 Логістика")
-    port = st.selectbox("Порт відправки (США)", ["New Jersey", "Savannah", "Houston", "Los Angeles"])
-    # Приблизна логістика (суша + море) з вашої таблиці TOW
-    towing_map = {"New Jersey": 1450, "Savannah": 1550, "Houston": 1350, "Los Angeles": 1750}
-    delivery_total = towing_map[port]
+with col_main:
+    c1, c2 = st.columns(2)
+    with c1:
+        bid = st.number_input("Ставка на аукціоні ($)", value=5000, step=100)
+        engine = st.selectbox("Двигун", ["Бензин", "Дизель", "Гібрид", "Електро"])
+        body = st.selectbox("Кузов", ["Седан", "SUV / Кросовер", "Пікап / Мінівен"])
+    with c2:
+        city = st.selectbox("Локація аукціону (City)", sorted(list(LOCATIONS.keys())))
+        year = st.number_input("Рік випуску", 2010, 2026, 2020)
+        volume = st.number_input("Об'єм (см³)", value=2000)
+
+# --- ЛОГІКА ОБЧИСЛЕНЬ ---
+loc_info = LOCATIONS[city]
+land_price = loc_info['price']
+
+# Доплати за тип кузова (з таблиці BASE)
+if body == "SUV / Кросовер": land_price += 150
+if body == "Пікап / Мінівен": land_price += 300
+
+# Доплата за Гібрид/Електро (Ваша умова)
+is_special = engine in ["Електро", "Гібрид"]
+if is_special: land_price += 200
+
+# Море (середній тариф по портах)
+sea_rates = {"NJ": 1100, "GA": 1200, "TX": 1150, "CA": 1350, "WA": 1400}
+sea_freight = sea_rates[loc_info['port']]
+
+auction_fee = get_auction_fee(bid)
+customs = calc_customs(bid, engine, volume, year)
+swift = 166
+
+total_cost = bid + auction_fee + land_price + sea_freight + swift + customs
+
+# --- ВИВІД ---
+with col_res:
+    st.subheader("📊 Деталізація")
+    st.metric("Аукціон + Swift", f"${int(bid + auction_fee + swift)}")
+    st.metric("Доставка (Суша+Море)", f"${int(land_price + sea_freight)}")
+    st.metric("Розмитнення", f"${int(customs)}")
+    st.divider()
+    st.success(f"## ВСЬОГО: ${int(total_cost)}")
     
-    st.subheader("🛡 Додатково")
-    insurance = st.checkbox("Страхування (1.5%)", value=True)
-    ins_val = bid * 0.015 if insurance else 0
-    swift = 166 # Фіксований Swift за вашою таблицею
+    if is_special:
+        st.caption("ℹ️ Доставка дорожча (Електро/Гібрид), мито за пільговим тарифом.")
 
-# --- МАКИМАЛЬНО ТОЧНИЙ ПІДСУМОК ---
-
-a_fee = get_auction_fee(bid)
-customs = calculate_ua_tax(bid, engine, volume, year)
-total_usa = bid + a_fee + delivery_total + ins_val + swift
-grand_total = total_usa + customs
-
-st.divider()
-
-# Вивід результатів
-res1, res2, res3 = st.columns(3)
-res1.metric("Витрати США", f"${int(total_usa)}")
-res2.metric("Розмитнення", f"${int(customs)}")
-res3.metric("Разом (ALL IN)", f"${int(grand_total)}")
-
-st.warning("⚠️ **Увага:** У цей розрахунок НЕ включено комісію PrimeBrok та витрати на сертифікацію/облік.")
-
-# Кнопка для зв'язку (опціонально)
-if st.button("Отримати консультацію менеджера"):
-    st.balloons()
-    st.write("Надішліть цей розрахунок нашому менеджеру в Telegram!")
+st.info(f"📍 Найближчий порт: {loc_info['port']} | Тип розрахунку: {engine}")
