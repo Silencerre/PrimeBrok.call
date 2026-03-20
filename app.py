@@ -1,74 +1,86 @@
 import streamlit as st
 
-# Настройка страницы
-st.set_page_config(page_title="Auto Auction Calculator", layout="centered")
+# --- ПОЛНАЯ МАТЕМАТИЧЕСКАЯ МОДЕЛЬ ИЗ ТАБЛИЦЫ ---
 
-st.title("🚀 Калькулятор логистики авто")
-st.write("Расчет на основе логики таблицы (IAAI/Copart)")
+def get_auction_fee(bid):
+    """Логика сетки сборов (IAAI/Copart). Замени цифры на свои из таблицы."""
+    if bid <= 499: return 250
+    if bid <= 599: return 340
+    if bid <= 699: return 360
+    if bid <= 999: return 450
+    return bid * 0.15 # Пример для высоких ставок, если нет точной сетки
 
-# --- ИСХОДНЫЕ ДАННЫЕ (ЛОГИКА ТАБЛИЦЫ) ---
-# Наземка (Inland)
-INLAND_COSTS = {
-    "Atlanta (GA)": 400,
-    "New Jersey (NJ)": 250,
-    "Savannah (GA)": 350
+# Справочник стоимости доставки (Суша + Море)
+LOGISTICS_ENGINE = {
+    "Atlanta (GA)": {
+        "inland": 400,
+        "ocean": {"GAS": 2635, "EV/HYB": 2860, "GAS 3": 2760}
+    },
+    "New Jersey (NJ)": {
+        "inland": 250,
+        "ocean": {"GAS": 2100, "EV/HYB": 2350, "GAS 3": 2200}
+    }
 }
 
-# Морской фрахт (Ocean) в зависимости от порта и типа топлива
-OCEAN_FREIGHT = {
-    "Constanta (RO)": {"GAS": 2635, "EV/HYB": 2860},
-    "Odesa (UA)": {"GAS": 2100, "EV/HYB": 2350}
-}
-
-# Фиксированные сборы
+# Фиксированные константы
 SWIFT = 121
-AUCTION_FEE_DEFAULT = 340 # Из твоего примера
 INSURANCE = 50
 
-# --- ИНТЕРФЕЙС ---
-with st.container():
-    col1, col2 = st.columns(2)
+# --- ИНТЕРФЕЙС STREAMLIT ---
+st.set_page_config(page_title="Auto Logistics Engine", layout="wide")
+st.title("⚙️ Система расчета по логике таблицы")
+
+with st.sidebar:
+    st.header("Ввод данных")
+    bid = st.number_input("BID (Ставка)", value=500, step=50)
+    fuel_type = st.selectbox("Тип топлива / Загрузки", ["GAS", "EV/HYB", "GAS 3"])
+    origin = st.selectbox("Штат (Origin)", list(LOGISTICS_ENGINE.keys()))
     
-    with col1:
-        bid = st.number_input("Ставка на аукционе ($)", min_value=0, value=500, step=50)
-        state = st.selectbox("Штат отправки (Origin)", list(INLAND_COSTS.keys()))
-        fuel_type = st.radio("Тип топлива", ["GAS", "EV/HYB"], horizontal=True)
-        
-    with col2:
-        port = st.selectbox("Порт назначения (Destination)", list(OCEAN_FREIGHT.keys()))
-        customs = st.number_input("Таможенные платежи ($)", min_value=0, value=1720)
-        other_fees = st.number_input("Прочие расходы / Склад ($)", min_value=0, value=0)
+    st.divider()
+    customs = st.number_input("Митні платежі (Customs)", value=1720)
+    other_fees = st.number_input("Прочие комиссии (Service/Broker)", value=150)
 
-# --- РАСЧЕТ ---
-# 1. Аукцион
-total_auction = bid + AUCTION_FEE_DEFAULT + SWIFT
+# --- ВЫЧИСЛЕНИЯ (БЕЗ ПОДГОНОК) ---
+# 1. Считаем аукцион
+current_auction_fee = get_auction_fee(bid)
+auction_total = bid + current_auction_fee + SWIFT
 
-# 2. Логистика
-inland_price = INLAND_COSTS[state]
-ocean_price = OCEAN_FREIGHT[port][fuel_type]
-total_shipping = inland_price + ocean_price + INSURANCE
+# 2. Считаем логистику
+inland_cost = LOGISTICS_ENGINE[origin]["inland"]
+ocean_cost = LOGISTICS_ENGINE[origin]["ocean"][fuel_type]
+delivery_total = inland_cost + ocean_cost + INSURANCE
 
-# 3. ИТОГО
-grand_total = total_auction + total_shipping + customs + other_fees
+# 3. ИТОГО (ALL IN)
+total_all_in = auction_total + delivery_total + customs + other_fees
+
+# --- ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ---
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.subheader("🏦 Аукцион")
+    st.write(f"Ставка: **${bid}**")
+    st.write(f"Сбор аукциона: **${current_auction_fee}**")
+    st.write(f"Swift перевод: **${SWIFT}**")
+    st.info(f"Итого аукцион: ${auction_total}")
+
+with col2:
+    st.subheader("🚢 Доставка")
+    st.write(f"Суша (Inland): **${inland_cost}**")
+    st.write(f"Море (Ocean): **${ocean_cost}**")
+    st.write(f"Страховка: **${INSURANCE}**")
+    st.info(f"Итого доставка: ${delivery_total}")
+
+with col3:
+    st.subheader("📑 Оформление")
+    st.write(f"Таможня: **${customs}**")
+    st.write(f"Комиссии: **${other_fees}**")
+    st.error(f"ALL IN: **${total_all_in}**")
 
 st.divider()
 
-# --- ВЫВОД РЕЗУЛЬТАТОВ ---
-c1, c2, c3 = st.columns(3)
-c1.metric("Аукцион + Fees", f"${total_auction}")
-c2.metric("Доставка и Фрахт", f"${total_shipping}")
-c3.metric("Таможня", f"${customs}")
-
-st.subheader(f"ИТОГО 'ALL IN': :green[${grand_total}]")
-
-# Детализация для проверки
-with st.expander("Посмотреть детализацию затрат"):
-    st.write(f"**Аукционный сбор:** ${AUCTION_FEE_DEFAULT}")
-    st.write(f"**Swift:** ${SWIFT}")
-    st.write(f"**Наземка ({state}):** ${inland_price}")
-    st.write(f"**Фрахт ({port} - {fuel_type}):** ${ocean_price}")
-    st.write(f"**Страховка:** ${INSURANCE}")
-    st.write(f"**Таможня:** ${customs}")
-
-# Футер с расчетом долга (как в таблице)
-st.info(f"К оплате (DEBT): -${grand_total}")
+# Таблица для проверки (как в Excel)
+st.write("### Детальная смета (Raw Data)")
+st.table({
+    "Параметр": ["BID", "Auction Fee", "Swift", "Inland", "Ocean", "Insurance", "Customs", "Other Fees", "TOTAL"],
+    "Значение": [bid, current_auction_fee, SWIFT, inland_cost, ocean_cost, INSURANCE, customs, other_fees, total_all_in]
+})
