@@ -1,110 +1,77 @@
 import streamlit as st
-import pandas as pd
 
-# Налаштування інтерфейсу
-st.set_page_config(page_title="PrimeBrok", layout="centered")
+# Налаштування сторінки
+st.set_page_config(page_title="PrimeBrok Logistics", layout="wide")
 
-# Назва сайту
-st.title("🚢 PrimeBrok")
-st.subheader("Система розрахунку логістики")
+# Стилізація для "дорогого" вигляду
+st.markdown("""
+    <style>
+    .stNumberInput input { font-size: 1.2rem !important; font-weight: bold; }
+    .result-box { padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 10px; color: white; }
+    .all-in { background-color: #d32f2f; }
+    .paid { background-color: #388e3c; }
+    .debt { background-color: #1976d2; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- БАЗА ДАНИХ ЛОКАЦІЙ (Витяг з ваших таблиць) ---
-# Формат: "Локація": [NJ, GA, TX, CA, WA]
-locations = {
-    "Atlanta (GA)": [None, 400, None, None, None],
-    "Abilene (TX)": [None, None, 460, None, None],
-    "Baltimore (MD)": [400, None, None, None, None],
-    "Los Angeles (CA)": [None, None, 1150, 250, None],
-    "Chicago-North (IL)": [725, None, None, None, None],
-    "Miami-North (FL)": [None, 450, None, None, None],
-    "Savannah (GA)": [None, 240, None, None, None],
-    "Seattle (WA)": [None, None, None, 875, 275],
-    "Houston (TX)": [None, None, 250, None, None],
-    "Newburgh (NY)": [300, None, None, None, None],
-    "Philadelphia (PA)": [325, None, None, None, None],
-}
+st.title("🚢 PrimeBrok — Система логістики")
+st.markdown("---")
 
-# --- БАЗА ДАНИХ ФРАХТУ (Порти та типи палива) ---
-# Ціни для портів залежно від штабу виходу (NJ, GA, TX, CA, WA)
-shipping = {
-    "Constanta": {
-        "GAS/Diesel": [2665, 2635, 2755, 3410, 3000],
-        "EV/HYB": [2930, 2860, 2960, 3560, 3200],
-        "GAS 3": [2860, 2760, 2960, 3735, 3300],
-        "GAS 2": [3980, 3940, 4180, 5490, 4500],
-        "MOTO": [2000, 2000, 2000, 2050, 2100]
-    },
-    "Odesa": {
-        "GAS/Diesel": [2475, 2450, 2575, 3250, 2900],
-        "EV/HYB": [2575, 2600, 2700, 3375, 3000],
-        "GAS 3": [2830, 2830, 3000, 3900, 3500],
-        "MOTO": [2000, 2000, 2000, 2050, 2100]
-    },
-    "Klaipeda": {
-        "GAS/Diesel": [2685, 2735, 2860, 3260, 3735],
-        "EV/HYB": [2785, 2835, 2960, 3360, 2835],
-        "GAS 3": [2790, 2840, 2965, 3465, 4185],
-        "MOTO": [2100, 2100, 2100, 2150, 3150]
-    }
-}
+# ОСНОВНА СІТКА (ЯК У ВАШІЙ ТАБЛИЦІ)
+col_left, col_mid, col_right = st.columns([1, 1, 1])
 
-# --- ВВІД ДАНИХ ---
-with st.container():
-    st.write("### Введіть параметри авто")
+with col_left:
+    st.subheader("📋 Дані аукціону")
+    auction = st.selectbox("Тип аукціону", ["IAAI", "COPART", "Other"])
+    location = st.text_input("Локація (наприклад, Atlanta GA)")
+    bid = st.number_input("Ставка ($)", min_value=0.0, step=50.0, value=0.0)
+    auction_fee = st.number_input("Збір Аукціону ($)", min_value=0.0, value=0.0)
+    swift_fee = st.number_input("Swift Аукціон ($)", min_value=0.0, value=0.0)
+
+with col_mid:
+    st.subheader("🚢 Логістика")
+    destination = st.selectbox("Порт призначення", ["Constanta", "Odesa", "Klaipeda", "Poti"])
+    fuel_type = st.selectbox("Тип палива / Завантаження", ["GAS", "EV", "Diesel", "Hybrid", "Moto", "GAS 3", "GAS 2"])
     
-    col1, col2 = st.columns(2)
+    st.write("**Транспортні витрати**")
+    land_cost = st.number_input("Суша ($)", min_value=0.0, value=0.0)
+    sea_cost = st.number_input("Море ($)", min_value=0.0, value=0.0)
     
-    with col1:
-        loc_name = st.selectbox("Локація аукціону (Location)", list(locations.keys()))
-        port = st.selectbox("Порт призначення", ["Constanta", "Odesa", "Klaipeda"])
-        fuel = st.selectbox("Тип палива / Завантаження", ["GAS/Diesel", "EV/HYB", "GAS 3", "GAS 2", "MOTO"])
-        
-    with col2:
-        bid = st.number_input("Ставка аукціону ($)", value=0)
-        auction_fee = st.number_input("Збір аукціону ($)", value=340)
-        customs = st.number_input("Митні платежі ($)", value=1720)
+    storage = st.number_input("Storage (Парковка) ($)", min_value=0.0, value=0.0)
 
-    insurance = st.number_input("Страхування ($)", value=50)
-    other = st.number_input("Інші витрати (Swift тощо) ($)", value=121)
+with col_right:
+    st.subheader("📂 Додатково")
+    insurance = st.number_input("Страхування ($)", min_value=0.0, value=0.0)
+    customs = st.number_input("Митні Платежі ($)", min_value=0.0, value=0.0)
+    other = st.number_input("Інше ($)", min_value=0.0, value=0.0)
+    
+    st.markdown("---")
+    paid_amount = st.number_input("ВЖЕ ОПЛАЧЕНО (PAID) ($)", min_value=0.0, value=0.0)
 
-# --- ЛОГІКА РОЗРАХУНКУ ---
-# 1. Знаходимо штат (індекс 0-4 для NJ, GA, TX, CA, WA)
-state_index = -1
-land_cost = 0
+# --- ЛОГІКА РОЗРАХУНКУ (ВСЕ ЯК У ТАБЛИЦІ) ---
+total_transport = land_cost + sea_cost
+# ALL IN = Сума всіх витрат
+all_in = bid + auction_fee + swift_fee + total_transport + insurance + storage + customs + other
+# DEBT = Залишок до сплати
+debt = all_in - paid_amount
 
-for i, cost in enumerate(locations[loc_name]):
-    if cost is not None:
-        state_index = i
-        land_cost = cost
-        break
-
-# 2. Отримуємо морський фрахт
-sea_cost = 0
-if fuel in shipping[port]:
-    sea_cost = shipping[port][fuel][state_index]
-else:
-    sea_cost = 0
-    st.warning("Цей тип палива недоступний для обраного порту.")
-
-# 3. Підрахунок сум
-total_logistics = land_cost + sea_cost
-total_all_in = bid + auction_fee + total_logistics + insurance + other + customs
-without_customs = total_all_in - customs
-
-# --- РЕЗУЛЬТАТИ ---
-st.divider()
-st.header("📊 Результати розрахунку")
-
-res_col1, res_col2 = st.columns(2)
+# --- ВІЗУАЛЬНИЙ ПІДСУМОК ---
+st.markdown("---")
+res_col1, res_col2, res_col3 = st.columns(3)
 
 with res_col1:
-    st.write(f"**Транспорт (Суша):** {land_cost} $")
-    st.write(f"**Фрахт (Море):** {sea_cost} $")
-    st.write(f"**Загальна логістика:** {total_logistics} $")
+    st.markdown(f'<div class="result-box all-in"><h3>ALL IN</h3><h2>${all_in:,.2f}</h2></div>', unsafe_allow_html=True)
 
 with res_col2:
-    st.success(f"### ALL IN: {total_all_in} $")
-    st.info(f"**Без митниці:** {without_customs} $")
+    st.markdown(f'<div class="result-box paid"><h3>PAID</h3><h2>${paid_amount:,.2f}</h2></div>', unsafe_allow_html=True)
 
-st.markdown("---")
-st.caption("PrimeBrok Logic Engine v1.0 | Все на українській мові за наказом повелителя.")
+with res_col3:
+    st.markdown(f'<div class="result-box debt"><h3>DEBT</h3><h2>${debt:,.2f}</h2></div>', unsafe_allow_html=True)
+
+# Деталізація для перевірки
+with st.expander("Розгорнути деталізацію витрат"):
+    st.write(f"**Вартість авто на аукціоні:** ${bid + auction_fee + swift_fee}")
+    st.write(f"**Загальна логістика:** ${total_transport}")
+    st.write(f"**Митниця та інше:** ${customs + insurance + other + storage}")
+
+st.caption("PrimeBrok | Весь функціонал таблиці перенесено.")
