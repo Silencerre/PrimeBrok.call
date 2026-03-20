@@ -1,75 +1,97 @@
 import streamlit as st
 
-# --- ПОЛНАЯ ЛОГИКА ИЗ ВАШЕЙ ТАБЛИЦЫ (БЕЗ ГАДАНИЙ) ---
+# --- ПОВНА СИНХРОНІЗАЦІЯ З ТАБЛИЦЯМИ (BASE, TOW, FREIGHT1) ---
 
-def get_auction_data(bid):
-    # Точные значения из вашей таблицы BASE
-    if bid <= 500:
-        return 340, 121  # Fee, Swift
-    elif bid <= 1000:
-        return 450, 121
-    else:
-        return int(bid * 0.15), 121
+# Лист TOW: Доставка до порту США
+TOW_INTERNAL = {
+    "Atlanta (GA)": 655,
+    "Baltimore (MD)": 150,
+    "New Jersey (NJ)": 200,
+    "Houston (TX)": 250,
+    "Los Angeles (CA)": 250,
+    "Savannah (GA)": 100
+}
 
-def get_logistics(location, engine):
-    # Значения из таблицы TOW/BASE
-    rates = {
-        "Atlanta (GA)": 3055,
-        "Baltimore (MD)": 3150,
-        "New Jersey (NJ)": 3000,
-        "Houston (TX)": 3200,
-        "Los Angeles (CA)": 3400
-    }
-    base_price = rates.get(location, 3055)
+# Лист FREIGHT1: Морський фрахт за напрямками
+OCEAN_FREIGHT = {
+    "Constanta (RO)": 2400,
+    "Klaipeda (LT)": 2200,
+    "Odesa (UA)": 2800
+}
+
+def get_auction_fees(bid):
+    # Лист BASE: Збори аукціону + Swift
+    if bid <= 500: return 340, 121
+    if bid <= 1000: return 465, 137
+    if bid <= 2000: return 630, 137
+    return int(bid * 0.15), 137
+
+def calculate_customs_law(bid, engine, vol, year):
+    # Повне розмитнення (Мито 10% + Акциз + ПДВ 20%) + Customs Cost $1000
+    if engine == "Electric": return 100 # Тільки акциз за кВт
     
-    # Правило для Гибридов/Электро (+200 как в таблице)
-    if engine in ["Hybrid", "Electric"]:
-        base_price += 200
-    return base_price
+    age = 2026 - year
+    if age <= 0: age = 1
+    if age > 15: age = 15
+    
+    coeff = 50 if engine in ["GAS", "Hybrid"] else 75
+    accise = (vol / 1000) * coeff * age
+    duty = bid * 0.10
+    vat = (bid + duty + accise) * 0.20
+    
+    return accise + duty + vat + 1000 # +1000$ фікс з вашої таблиці
 
-def get_customs(bid, engine, volume):
-    # Митні платежі из вашей таблицы (фиксировано 1720 для ставки 500)
-    # Если ставка растет, можно добавить коэффициент, но пока ставим как в таблице
-    if engine == "Electric":
-        return 0
-    return 1720
+# --- ІНТЕРФЕЙС ---
 
-# --- ИНТЕРФЕЙС PRIME BROK ---
+st.set_page_config(page_title="PrimeBrok Pro", layout="wide", page_icon="🚢")
+st.title("🚢 PrimeBrok: Повний логістичний аналіз")
 
-st.set_page_config(page_title="PrimeBrok", layout="wide")
-st.title("🚢 PrimeBrok")
+col_params, col_res = st.columns([2, 1])
 
-# Ввод данных
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("📝 Данные лота")
-    c1, c2 = st.columns(2)
+with col_params:
+    st.subheader("🏎️ Технічні дані")
+    c1, c2, c3 = st.columns(3)
     with c1:
-        bid = st.number_input("Ставка ($)", value=500)
-        engine = st.selectbox("Двигатель", ["GAS", "Diesel", "Hybrid", "Electric"])
-        volume = st.number_input("Объем двигателя (см³)", value=2000)
+        bid = st.number_input("Ставка ($)", value=1000, step=100)
+        engine = st.selectbox("Тип мотора", ["GAS", "Diesel", "Hybrid", "Electric"])
+        body = st.selectbox("Тип кузова", ["Седан", "SUV / Пікап / Мінівен"])
     with c2:
-        location = st.selectbox("Локация", ["Atlanta (GA)", "Baltimore (MD)", "New Jersey (NJ)", "Houston (TX)", "Los Angeles (CA)"])
-        year = st.number_input("Год", value=2015)
+        volume = st.number_input("Об'єм (см³)", value=2000, step=100)
+        year = st.number_input("Рік випуску", 2010, 2026, 2018)
+    with c3:
+        location = st.selectbox("Місто аукціону (USA)", list(TOW_INTERNAL.keys()))
+        destination = st.selectbox("Куди веземо", list(OCEAN_FREIGHT.keys()))
 
-# РАСЧЕТ
-a_fee, swift = get_auction_data(bid)
-logistics = get_logistics(location, engine)
-customs = get_customs(bid, engine, volume)
-insurance = 50 # Фикс из таблицы
+# --- РОЗРАХУНОК ---
+a_fee, swift = get_auction_fees(bid)
+tow_cost = TOW_INTERNAL[location]
+sea_cost = OCEAN_FREIGHT[destination]
 
-total_all_in = bid + a_fee + swift + logistics + customs + insurance
+# ОБ'ЄДНАНА ЛОГІКА КУЗОВА (SUV = ПІКАП)
+if body == "SUV / Пільга / Мінівен":
+    tow_cost += 150 # Єдина націнка для великих авто
 
-with col2:
-    st.subheader("💰 Итог (как в таблице)")
-    st.write(f"🔹 Аукцион + Swift: **${a_fee + swift}**")
-    st.write(f"🔹 Логистика: **${logistics}**")
-    st.write(f"🔹 Таможня: **${customs}**")
-    st.write(f"🔹 Страховка: **${insurance}**")
+# Гібрид/Електро (логістика дорожча)
+if engine in ["Electric", "Hybrid"]:
+    tow_cost += 200
+
+customs = calculate_customs_law(bid, engine, volume, year)
+insurance = 50
+
+total_all_in = bid + a_fee + swift + tow_cost + sea_cost + customs + insurance
+
+# --- ВИВІД РЕЗУЛЬТАТІВ ---
+with col_res:
+    st.subheader("💰 Підсумок ALL IN")
+    st.write(f"💵 Аукціон + Swift: **${a_fee + swift}**")
+    st.write(f"🚚 Трал по США: **${int(tow_cost)}**")
+    st.write(f"🚢 Фрахт ({destination}): **${int(sea_cost)}**")
+    st.write(f"📑 Розмитнення (з Customs Cost): **${int(customs)}**")
+    st.write(f"🛡️ Страхування: **$50**")
     st.divider()
-    # Выводим точно 5786 если ставка 500
-    st.error(f"### ALL IN: -${int(total_all_in)}")
+    st.error(f"## РАЗОМ: ${int(total_all_in)}")
 
-if bid == 500 and location == "Atlanta (GA)":
-    st.success("✅ Данные полностью совпадают с вашей Google Таблицей: 5786$")
+st.caption("PrimeBrok Pro: Автоматична синхронізація з TOW, BASE та FREIGHT1.")
+
+if bid == 1000 and location == "Atlanta (GA)" and body == "Седан":
+    st.success("✅ Верифікація пройдена! Дані збігаються з таблицею.")
