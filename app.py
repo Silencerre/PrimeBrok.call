@@ -1,88 +1,60 @@
+import streamlit as st
+import streamlit.components.v1 as components
+
+st.set_page_config(page_title="Calculator", layout="centered")
+
+# Ваш калькулятор внутри Streamlit
+calc_html = """
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Логистический калькулятор США</title>
     <style>
-        :root {
-            --primary: #2c3e50;
-            --accent: #e74c3c;
-            --light: #ecf0f1;
-        }
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        :root { --primary: #2c3e50; --accent: #e74c3c; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 10px; margin: 0; }
         .calc-card {
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 500px; margin: 0 auto; background: white;
+            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        h2 { text-align: center; color: var(---primary); margin-bottom: 25px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
         select, input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 16px;
+            width: 100%; padding: 10px; margin: 8px 0;
+            border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box;
         }
         .result-box {
-            margin-top: 25px;
-            padding: 20px;
-            background: var(--primary);
-            color: white;
-            border-radius: 10px;
-            text-align: center;
+            margin-top: 20px; padding: 15px; background: #2c3e50;
+            color: white; border-radius: 8px; text-align: center;
         }
-        .total-price { font-size: 28px; font-weight: bold; color: #2ecc71; }
-        .detail { font-size: 14px; color: #bdc3c7; margin-top: 10px; }
+        .total-price { font-size: 24px; font-weight: bold; color: #2ecc71; }
     </style>
 </head>
 <body>
-
 <div class="calc-card">
-    <h2>Калькулятор доставки</h2>
-    
-    <div class="form-group">
-        <label>Пункт назначения</label>
-        <select id="destination" onchange="calculate()">
-            <option value="odesa">Одесса, Украина</option>
-            <option value="constanta">Констанца, Румыния</option>
-        </select>
-    </div>
+    <label>Назначение</label>
+    <select id="destination" onchange="calculate()">
+        <option value="odesa">Одесса, Украина</option>
+        <option value="constanta">Констанца, Румыния</option>
+    </select>
 
-    <div class="form-group">
-        <label>Штат отправки (Порт)</label>
-        <select id="origin" onchange="calculate()">
-            <option value="NJ">New Jersey (NJ)</option>
-            <option value="GA">Georgia (GA)</option>
-            <option value="TX">Texas (TX)</option>
-            <option value="CA">California (CA)</option>
-        </select>
-    </div>
+    <label>Штат (Порт)</label>
+    <select id="origin" onchange="calculate()">
+        <option value="NJ">New Jersey (NJ)</option>
+        <option value="GA">Georgia (GA)</option>
+        <option value="TX">Texas (TX)</option>
+        <option value="CA">California (CA)</option>
+    </select>
 
-    <div class="form-group">
-        <label>Тип топлива / Загрузка</label>
-        <select id="type" onchange="calculate()">
-            <option value="gas">Бензин / Дизель</option>
-            <option value="ev">Электро / Гибрид</option>
-            <option value="gas3">Контейнер на 3 авто</option>
-        </select>
-    </div>
+    <label>Тип топлива</label>
+    <select id="type" onchange="calculate()">
+        <option value="gas">Бензин / Дизель</option>
+        <option value="ev">Электро / Гибрид</option>
+        <option value="gas3">Контейнер на 3 авто</option>
+    </select>
 
-    <div class="form-group">
-        <label>Доставка до порта (Towing), $</label>
-        <input type="number" id="towing" value="300" oninput="calculate()">
-    </div>
+    <label>Доставка до порта (Towing), $</label>
+    <input type="number" id="towing" value="300" oninput="calculate()">
 
     <div class="result-box">
-        <div>Финальная стоимость доставки:</div>
+        <div>Итого доставка:</div>
         <div class="total-price" id="totalResult">$0</div>
-        <div class="detail" id="breakdown">Выберите параметры</div>
     </div>
 </div>
 
@@ -107,18 +79,14 @@
         const origin = document.getElementById('origin').value;
         const type = document.getElementById('type').value;
         const towing = parseFloat(document.getElementById('towing').value) || 0;
-
         const seaFreight = rates[dest][origin][type];
-        const total = seaFreight + towing;
-
-        document.getElementById('totalResult').innerText = '$' + total;
-        document.getElementById('breakdown').innerText = 
-            `Фрахт: $${seaFreight} + Эвакуатор: $${towing}`;
+        document.getElementById('totalResult').innerText = '$' + (seaFreight + towing);
     }
-
-    // Инициализация при загрузке
     calculate();
 </script>
-
 </body>
 </html>
+"""
+
+# Отрисовка компонента в Streamlit
+components.html(calc_html, height=600)
