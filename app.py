@@ -1,185 +1,161 @@
-# app.py
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 
-st.set_page_config(page_title="Нікіта Калькулятор", layout="wide", page_icon="🚗")
+st.set_page_config(page_title="Нікіта Калькулятор", layout="wide", page_icon="🇺🇦")
 
-st.title("Нікіта Калькулятор — імпорт авто з США")
-st.caption("Версія, максимально близька до твого excel-файлу")
+st.title("Нікіта Калькулятор")
+st.markdown("**Імпорт авто з США** — Констанца / Одеса / Клайпеда")
 
 # ────────────────────────────────────────────────
-# Завантаження excel-файлу
-uploaded = st.file_uploader(
-    "Завантаж свій файл Нікіта Калькулятор.xlsx (або (1), (2) тощо)",
-    type=["xlsx", "xls"],
-    help="Потрібні аркуші: TOW та Freight1"
-)
-
-if not uploaded:
-    st.info("Завантаж файл → калькулятор запрацює")
-    st.stop()
-
-# ────────────────────────────────────────────────
-# Читання аркушів
-@st.cache_data(show_spinner="Читаємо TOW та Freight...")
-def load_sheets(file):
-    try:
-        tow = pd.read_excel(file, sheet_name="TOW", header=0)
-        freight = pd.read_excel(file, sheet_name="Freight1", header=0)
-        return tow, freight
-    except Exception as e:
-        st.error(f"Помилка читання файлу: {e}")
-        st.stop()
-
-tow_df, freight_df = load_sheets(uploaded)
+# Дані TOW — тільки ті локації, де є хоча б один нормальний порт (без Error)
+# (скорочено для прикладу — додай свої 300+ локацій сюди за тим самим шаблоном)
+tow = {
+    "Atlanta (GA)":          {"GA": 400},
+    "Atlanta East (GA)":     {"GA": 400},
+    "Atlanta North (GA)":    {"GA": 400},
+    "Atlanta South (GA)":    {"GA": 400},
+    "Atlanta West (GA)":     {"GA": 400},
+    "Savannah":              {"GA": 240},
+    "Dallas (TX)":           {"TX": 350},
+    "Dallas/Ft Worth (TX)":  {"TX": 350},
+    "Los Angeles (CA)":      {"CA": 1150},
+    "San Diego (CA)":        {"CA": 1150},
+    "Seattle (WA)":          {"CA": 875, "WA": 275},
+    "Avenel New Jersey (NJ)": {"NJ": 250},
+    "Carteret":              {"NJ": 300},
+    "Trenton":               {"NJ": 285},
+    # ... сюди встав всі інші локації, де є число замість "Error"
+}
 
 # ────────────────────────────────────────────────
-# Обробка TOW (робимо словник локація → порт → ціна)
-tow_dict = {}
-ports = ["NJ", "GA", "TX", "CA", "WA"]
+# Фрахт — точно з твого файлу (Constanta, Odesa, Klaipeda)
+freight = {
+    "Constanta": {
+        "NJ": {"GAS":2665, "DIESEL":2665, "EV":2930, "HYB":2930, "GAS 3":2860, "DIESEL 3":2860, "EV 3":3265, "HYB 3":3265, "GAS 2":3980, "DIESEL 2":3980, "MOTO":2000},
+        "GA": {"GAS":2635, "DIESEL":2635, "EV":2860, "HYB":2860, "GAS 3":2760, "DIESEL 3":2760, "EV 3":3145, "HYB 3":3145, "GAS 2":3940, "DIESEL 2":3940, "MOTO":2000},
+        "TX": {"GAS":2755, "DIESEL":2755, "EV":2960, "HYB":2960, "GAS 3":2960, "DIESEL 3":2960, "EV 3":3385, "HYB 3":3385, "GAS 2":4180, "DIESEL 2":4180, "MOTO":2000},
+        "CA": {"GAS":3410, "DIESEL":3410, "EV":3560, "HYB":3560, "GAS 3":3735, "DIESEL 3":3735, "EV 3":4145, "HYB 3":4145, "GAS 2":5490, "DIESEL 2":5490, "MOTO":2050},
+    },
+    "Odesa": {
+        "NJ": {"GAS":2475, "DIESEL":2475, "EV":2575, "HYB":2575, "GAS 3":2830, "DIESEL 3":2830, "EV 3":3000, "HYB 3":3000, "MOTO":2000},
+        "GA": {"GAS":2450, "DIESEL":2450, "EV":2600, "HYB":2600, "GAS 3":2830, "DIESEL 3":2830, "EV 3":3000, "HYB 3":3000, "MOTO":2000},
+        "TX": {"GAS":2575, "DIESEL":2575, "EV":2700, "HYB":2700, "GAS 3":3000, "DIESEL 3":3000, "EV 3":3170, "HYB 3":3170, "MOTO":2000},
+        "CA": {"GAS":3250, "DIESEL":3250, "EV":3375, "HYB":3375, "GAS 3":3900, "DIESEL 3":3900, "EV 3":4070, "HYB 3":4070, "MOTO":2050},
+    },
+    "Klaipeda": {
+        "NJ": {"GAS":2685, "DIESEL":2685, "EV":2785, "HYB":2785, "GAS 3":2790, "DIESEL 3":2790, "EV 3":2890, "HYB 3":2890, "MOTO":2100},
+        "GA": {"GAS":2735, "DIESEL":2735, "EV":2835, "HYB":2835, "GAS 3":2840, "DIESEL 3":2840, "EV 3":2940, "HYB 3":2940, "MOTO":2100},
+        "TX": {"GAS":2860, "DIESEL":2860, "EV":2960, "HYB":2960, "GAS 3":2965, "DIESEL 3":2965, "EV 3":3065, "HYB 3":3065, "MOTO":2100},
+        "CA": {"GAS":3260, "DIESEL":3260, "EV":3360, "HYB":3360, "GAS 3":3465, "DIESEL 3":3465, "EV 3":3565, "HYB 3":3565, "MOTO":2150},
+        "WA": {"GAS":3735, "DIESEL":3735, "EV":2835, "HYB":2835, "GAS 3":4185, "DIESEL 3":4185, "EV 3":3285, "HYB 3":3285, "MOTO":3150},
+    }
+}
 
-for _, row in tow_df.iterrows():
-    loc = str(row.get("Loaction", "")).strip()
-    if not loc or loc == "nan":
-        continue
-    tow_dict[loc] = {}
-    for p in ports:
-        val = row.get(p)
-        if pd.notna(val) and str(val).strip().lower() not in ["error", ""]:
-            try:
-                tow_dict[loc][p] = float(val)
-            except:
-                tow_dict[loc][p] = None
+# ────────────────────────────────────────────────
+col1, col2 = st.columns([5, 4])
+
+with col1:
+    st.subheader("Дані авто")
+
+    client   = st.text_input("Клієнт / Замовлення №")
+    model    = st.text_input("Модель + рік")
+    vin      = st.text_input("VIN")
+
+    location = st.selectbox("Локація аукціону", sorted(tow.keys()))
+
+    # Показуємо тільки ті порти, де є ціна
+    if location in tow:
+        ports = [p for p, price in tow[location].items() if price is not None]
+        if ports:
+            us_port_label = st.selectbox("Порт відправлення США", [f"{p} — {tow[location][p]}$" for p in ports])
+            us_port = us_port_label.split(" — ")[0]
+            tow_cost = tow[location][us_port]
         else:
-            tow_dict[loc][p] = None
-
-# ────────────────────────────────────────────────
-# Обробка Freight (робимо словник порт UA → порт US → тип → ціна)
-freight_dict = {}
-ua_ports_list = []
-
-for _, row in freight_df.iterrows():
-    ua_port = str(row.iloc[0]).strip()
-    if ua_port in ["Constanta", "Odesa", "Klaipeda"]:
-        ua_ports_list.append(ua_port)
-        freight_dict[ua_port] = {}
-        for col_idx, us_port in enumerate(["NJ", "GA", "TX", "CA", "WA"][:len(row)-1]):
-            if pd.notna(row.iloc[col_idx+1]):
-                try:
-                    val = float(row.iloc[col_idx+1])
-                    if val > 0:
-                        freight_dict[ua_port][us_port] = {}
-                        # Заповнюємо типи (GAS, DIESEL, EV, HYB, GAS 3, ... MOTO)
-                        # Це спрощено — краще взяти з перших рядків
-                except:
-                    pass
-
-# Краще — вручну витягнути структуру (бо Freight1 має специфічний формат)
-# Тут спрощена версія — якщо не працює, скинь мені перші 15 рядків Freight1 текстом
-
-# ────────────────────────────────────────────────
-# Інтерфейс
-left, right = st.columns([5, 4])
-
-with left:
-    st.subheader("Основні дані")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        client = st.text_input("Клієнт")
-        model = st.text_input("Модель + рік")
-        vin = st.text_input("VIN")
-
-    with col2:
-        location = st.selectbox("Локація (TOW)", options=sorted(tow_dict.keys()) if tow_dict else ["Завантаж файл"])
-
-    if location in tow_dict:
-        avail_ports = {p: c for p, c in tow_dict[location].items() if c is not None}
-        if avail_ports:
-            us_port_str = st.selectbox("Порт США", [f"{p} — {c} $" for p,c in sorted(avail_ports.items(), key=lambda x:x[1])])
-            us_port = us_port_str.split(" — ")[0]
-            tow_price = avail_ports[us_port]
-        else:
-            st.warning("Немає доступних портів для цієї локації")
+            st.warning("Для цієї локації немає доступних портів")
             us_port = None
-            tow_price = 0
+            tow_cost = 0
     else:
         us_port = None
-        tow_price = 0
+        tow_cost = 0
 
     ua_port = st.selectbox("Порт призначення", ["Constanta", "Odesa", "Klaipeda"])
 
-    transport = st.radio("Тип", ["Авто", "Мотоцикл"], horizontal=True)
+    st.subheader("Тип та контейнер")
 
-    if transport == "Авто":
-        fuel = st.selectbox("Паливо", ["GAS", "DIESEL", "EV", "HYB"])
-        container = st.selectbox("Завантаження", ["1 авто", "3 авто в контейнері", "2 місця (півконтейнера)"])
-        if container == "1 авто":
-            f_key = fuel
-        elif container == "3 авто в контейнері":
-            f_key = fuel + " 3"
+    col_type, col_fuel = st.columns(2)
+    with col_type:
+        is_moto = st.radio("Тип", ["Авто", "Мотоцикл"], horizontal=True) == "Мотоцикл"
+
+    with col_fuel:
+        if not is_moto:
+            fuel = st.selectbox("Паливо", ["GAS", "DIESEL", "EV", "HYB"])
+            container = st.selectbox("Завантаження", ["1 авто", "3 авто в контейнері", "2 місця (півконтейнера)"])
+            if container == "1 авто":
+                f_key = fuel
+            elif container == "3 авто в контейнері":
+                f_key = fuel + " 3"
+            else:
+                f_key = fuel + " 2"
         else:
-            f_key = fuel + " 2"
-    else:
-        f_key = "MOTO"
+            f_key = "MOTO"
+            fuel = "—"
+            container = "—"
 
-with right:
-    st.subheader("Витрати (змінювати можна)")
+with col2:
+    st.subheader("Витрати")
 
-    col_a, col_b = st.columns(2)
-    with col_a:
-        auction = st.number_input("Збір аукціону", value=340)
-        swift = st.number_input("Swift аукціон", value=121)
-        insurance = st.number_input("Страхування", value=50)
-    with col_b:
-        storage = st.number_input("Storage", value=0)
-        other = st.number_input("Інше", value=0)
-        customs = st.number_input("Митні платежі", value=1720)
-        paid = st.number_input("Вже сплачено (PAID)", value=0)
+    auction   = st.number_input("Збір аукціону", value=340, step=10)
+    swift     = st.number_input("Swift аукціон", value=121, step=5)
+    insurance = st.number_input("Страхування", value=50, step=10)
+    storage   = st.number_input("Storage", value=0, step=50)
+    other     = st.number_input("Інше", value=0, step=100)
+    customs   = st.number_input("Митні платежі", value=1720, step=100)
+    paid      = st.number_input("Вже сплачено", value=0, step=500)
 
 # ────────────────────────────────────────────────
-if st.button("Розрахувати ALL IN", type="primary", use_container_width=True):
+if st.button("Порахувати", type="primary", use_container_width=True):
+
     if not us_port:
         st.error("Обери локацію та порт США")
     else:
-        freight_price = "не знайдено"
-        # Тут потрібно витягнути ціну з freight_df — це найскладніше місце
-        # Якщо не виходить — скинь мені перші 30 рядків аркуша Freight1 текстом
+        try:
+            freight_cost = freight[ua_port][us_port][f_key]
+        except KeyError:
+            freight_cost = None
 
-        # Приклад заглушка
-        freight_price = 9999  # <--- заміни на реальну логіку
+        if freight_cost is None:
+            st.error(f"Комбінація {ua_port} + {us_port} + {f_key} не знайдена")
+        else:
+            subtotal = tow_cost + freight_cost + auction + swift + insurance + storage + other
+            total    = subtotal + customs
+            debt     = total - paid
 
-        total_no_customs = tow_price + freight_price + auction + swift + insurance + storage + other
-        total = total_no_customs + customs
-        debt = total - paid
+            st.success("Готово")
 
-        st.success("Розрахунок готовий")
+            st.markdown(f"""
+            **TOW** ................ {tow_cost:>6,} $
+            **Фрахт** ............. {freight_cost:>6,} $
+            **Аукціон + Swift + Страх** .. {auction + swift + insurance:>6,} $
+            **Storage + Інше** .... {storage + other:>6,} $
+            ───────────────────────────────
+            **Без мита** .......... {subtotal:>6,} $
+            **Мито** .............. {customs:>6,} $
+            **ВСЬОГО (ALL IN)** ... **{total:>6,} $**
 
-        st.markdown(f"""
-        **TOW** ............ {tow_price:,.0f} $
-        **Фрахт** ......... {freight_price} $
-        **Аукціон+Swift+Страх** .. {auction + swift + insurance:,.0f} $
-        **Storage + Інше** .. {storage + other:,.0f} $
-        ────────────────────────────
-        **Без мита** ...... {total_no_customs:,.0f} $
-        **Мито** .......... {customs:,.0f} $
-        **ALL IN** ........ **{total:,.0f} $**
+            **Сплачено** .......... {paid:>6,} $
+            **До оплати** ......... **{debt:>6,} $**
+            """, unsafe_allow_html=True)
 
-        **Сплачено** ...... {paid:,.0f} $
-        **До оплати** ..... **{debt:,.0f} $**
-        """)
-
-        st.code(f"""Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}
+            st.code(f"""Нікіта Калькулятор | {st.session_state.get('today', '2025')}
 Клієнт: {client}
 Модель: {model}
 VIN: {vin}
 Локація: {location} → {us_port}
 Порт UA: {ua_port}
-Тип: {transport} {f_key if transport=='Авто' else ''}
+Тип: { "Мото" if is_moto else f"{fuel} / {container}" }
 
-TOW: {tow_price}$
-Фрахт: {freight_price}$
+TOW: {tow_cost}$
+Фрахт: {freight_cost}$
+Мито: {customs}$
 ALL IN: {total}$
-До оплати: {debt}$""")
-        
+До оплати: {debt}$
+""")
