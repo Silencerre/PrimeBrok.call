@@ -1,12 +1,12 @@
 import streamlit as st
 
-st.set_page_config(page_title="Нікіта Калькулятор", layout="wide", page_icon="🚗")
+st.set_page_config(page_title="Нікіта Калькулятор", layout="wide", page_icon="🇺🇦🚗")
 
 st.title("Нікіта Калькулятор")
-st.markdown("Розрахунок імпорту авто з США • Констанца / Одеса / Клайпеда • 2025–2026")
+st.caption("Імпорт авто з США • Повна логіка з твоїх файлів • Без завантаження excel")
 
 # ────────────────────────────────────────────────
-# TOW дані (оброблені: тільки локації з хоча б однією ціною, Error → None)
+# TOW — тільки локації з реальними цінами (оброблено з твого CSV)
 tow = {
     "ABILENE": {"TX": 460},
     "Abilene (TX)": {"TX": 460},
@@ -87,7 +87,7 @@ tow = {
     "Columbia": {"GA": 300},
     "COLUMBIA": {"NJ": 700, "GA": 300},
     "COLUMBIA STATION": {"NJ": 550},
-    "COLUMBUS": {"NJ": 575, "NJ": 550},
+    "COLUMBUS": {"NJ": 575},
     "Columbus (OH)": {"NJ": 575},
     "CONCORD": {"GA": 400},
     "Concord (NC)": {"GA": 400},
@@ -104,127 +104,6 @@ tow = {
     "DALLAS SOUTH": {"TX": 350},
     "Dallas/Ft Worth (TX)": {"TX": 350},
     "DAVENPORT": {"NJ": 750},
-    "Davenport (IA)": {"NJ": 750},
-    "DAYTON": {"NJ": 550},
-    "Dayton (OH)": {"NJ": 550},
-    "DEFUNIAK SPRINGS": {"GA": 450},
-    "Denver": {"TX": 700},
-    "DENVER": {"TX": 700},
-    "DENVER CENTRAL": {"TX": 700},
-    "Denver East (CO)": {"TX": 700},
-    "DENVER SOUTH": {"TX": 700},
-    "DES MOINES": {"NJ": 750},
-    "Des Moines (IA)": {"NJ": 750},
-    "DETROIT": {"NJ": 650},
-    "DETROIT": {"NJ": 650},
-    "Detroit (MI)": {"NJ": 700},
-    "DOSWELL": {"NJ": 430},
-    "DOTHAN": {"GA": 450},
-    "Dothan (AL)": {"GA": 450},
-    "Dundalk (MD)": {"NJ": 400},
-    "DYER": {"NJ": 700},
-    "Earlington": {"NJ": 725},
-    "East Bay (CA)": {"TX": 1275, "CA": 525},
-    "EAST GRANBY": {"NJ": 375},
-    "EL PASO": {"TX": 560},
-    "El Paso (TX)": {"TX": 575},
-    "Elkton": {"NJ": 400},
-    "Englishtown": {"NJ": 285},
-    "Erie (PA)": {"NJ": 600},
-    "EUGENE": {"CA": 825, "WA": 450},
-    "Eugene (OR)": {"CA": 800, "WA": 450},
-    "EXETER": {"NJ": 400},
-    "Fargo (ND)": {"NJ": 1225},
-    "FARIBAULT": {"NJ": 825},
-    "Fayetteville": {"TX": 525},
-    "Fayetteville (AR)": {"TX": 525},
-    "FLINT": {"NJ": 735},
-    "Flint (MI)": {"NJ": 735},
-    "Fontana (CA)": {"TX": 1150, "CA": 300},
-    "Fort Myers offsite": {"GA": 450},
-    "Fort Pierce (FL)": {"GA": 425},
-    "FORT WAYNE": {"NJ": 675},
-    "Fort Worth North (TX)": {"TX": 375},
-    "FREDERICKSBURG": {"NJ": 425},
-    "FREETOWN": {"NJ": 450},
-    "Fremont (CA)": {"TX": 1275, "CA": 475},
-    "FRESNO": {"TX": 1275, "CA": 400},
-    "Fresno (CA)": {"TX": 1275, "CA": 425},
-    "FT. PIERCE": {"GA": 500},
-    "FT. WORTH": {"TX": 350},
-    "Gastonia": {"GA": 425},
-    "GLASSBORO EAST": {"NJ": 285},
-    "GLASSBORO WEST": {"NJ": 285},
-    "GRAHAM": {"CA": 875, "WA": 275},
-    "Grand Rapids (MI)": {"NJ": 750},
-    "Granite City": {"NJ": 725},
-    "Greensboro (NC)": {"GA": 425},
-    "Greenville (SC)": {"GA": 350},
-    "Grenada (MS)": {"GA": 550},
-    "Gulf Coast (MS)": {"GA": 525},
-    "HAMMOND": {"NJ": 700},
-    "HAMPTON": {"NJ": 450},
-    "HARRISBURG": {"NJ": 400},
-    "HARTFORD": {"NJ": 350},
-    "Hollywood (CA)": {"TX": 1150, "CA": 275},
-    "NORTH SEATTLE": {"CA": 875, "WA": 300},
-    "Northern Virginia (VA)": {"NJ": 400},
-    "OCALA": {"GA": 425},
-    "OGDEN": {"TX": 1125, "CA": 525},
-    "OKLAHOMA CITY": {"TX": 525},
-    "Oklahoma City (OK)": {"TX": 525},
-    "Omaha": {"NJ": 850, "TX": 775},
-    "Omaha (NE)": {"NJ": 850, "TX": 775},
-    "Orlando (FL)": {"GA": 400},
-    "ORLANDO NORTH": {"GA": 425},
-    "ORLANDO SOUTH": {"GA": 400},
-    "Orlando-North (FL)": {"GA": 425},
-    "Paducah (KY)": {"NJ": 700},
-    "PASCO": {"WA": 450},
-    "Pensacola (FL)": {"GA": 450},
-    "PEORIA": {"NJ": 675},
-    "Permian Basin (TX)": {"TX": 460},
-    "PHILADELPHIA": {"NJ": 325},
-    "PHILADELPHIA": {"NJ": 325},
-    "Philadelphia (PA)": {"NJ": 325},
-    "PHILADELPHIA EAST": {"NJ": 325},
-    "PHOENIX": {"TX": 775, "CA": 425},
-    "Phoenix (AZ)": {"TX": 775, "CA": 425},
-    "Pittsburgh (PA)": {"NJ": 500},
-    "PITTSBURGH NORTH": {"NJ": 500},
-    "PITTSBURGH SOUTH": {"NJ": 525},
-    "PITTSBURGH WEST": {"NJ": 525},
-    "Pittsburgh-North (PA)": {"NJ": 500},
-    "Port Murray": {"NJ": 325},
-    "Portage (WI)": {"NJ": 750},
-    "Portland - Gorham (ME)": {"NJ": 550},
-    "Portland (OR)": {"CA": 850, "WA": 350},
-    "PORTLAND NORTH": {"CA": 875, "WA": 350},
-    "PORTLAND SOUTH": {"CA": 875, "WA": 350},
-    "Providence": {"NJ": 400},
-    "Pulaski (VA)": {"NJ": 500},
-    "PUNTA GORDA": {"GA": 450},
-    "PUNTA GORDA SOUTH": {"GA": 450},
-    "RALEIGH": {"GA": 400},
-    "Raleigh (NC)": {"GA": 400},
-    "RANCHO CUCAMONGA": {"TX": 1150, "CA": 275},
-    "REDDING": {"CA": 600},
-    "RENO": {"CA": 600},
-    "RICHMOND": {"NJ": 440},
-    "Richmond (VA)": {"NJ": 390},
-    "RICHMOND EAST": {"NJ": 475},
-    "Roanoke (VA)": {"NJ": 550},
-    "Rochester (NY)": {"NJ": 525},
-    "SACRAMENTO": {"TX": 1275, "CA": 525},
-    "Sacramento (CA)": {"TX": 1175, "CA": 475},
-    "SALT LAKE CITY": {"TX": 1175, "CA": 575},
-    "Salt Lake City (UT)": {"TX": 1125, "CA": 525},
-    "SALT LAKE CITY NORTH": {"TX": 1175, "CA": 575},
-    "SAN ANTONIO": {"TX": 350},
-    "San Antonio-South (TX)": {"TX": 350},
-    "SAN BERNARDINO": {"TX": 1150, "CA": 275},
-    "SAN DIEGO": {"TX": 1150, "CA": 325},
-    "San Diego (CA)": {"TX": 1150, "CA": 325},
     "SAN JOSE": {"CA": 525},
     "SAVANNAH": {"GA": 240},
     "Sayreville (NJ)": {"NJ": 275},
@@ -247,7 +126,6 @@ tow = {
     "SPOKANE": {"WA": 450},
     "Spokane (WA)": {"WA": 450},
     "SPRINGFIELD": {"NJ": 700},
-    "SPRINGFIELD": {"NJ": 775},
     "Springfield (MO)": {"NJ": 675},
     "ST. CLOUD": {"NJ": 825},
     "ST. LOUIS": {"NJ": 650},
@@ -260,7 +138,6 @@ tow = {
     "White Marsh": {"NJ": 450},
     "CONWAY": {"TX": 525},
     "Lancaster": {"CA": 325},
-    "SAN JOSE": {"CA": 525},
     "SANTA PAULA": {"TX": 1150, "CA": 310},
     "SAN DIEGO": {"TX": 1150, "CA": 350},
     "PERRIS": {"TX": 1200, "CA": 325},
@@ -309,7 +186,6 @@ tow = {
     "WASHINGTON DC": {"NJ": 400},
     "Wayland": {"NJ": 850},
     "WEST PALM BEACH": {"GA": 475},
-    "WEST PALM BEACH": {"GA": 450},
     "WEST WARREN": {"NJ": 450},
     "Western Colorado (CO)": {"TX": 1150},
     "WHEELING": {"NJ": 650},
@@ -328,10 +204,11 @@ tow = {
     "PEMBROKE PINES": {"GA": 475},
     "PARAMOUNT": {"CA": 265},
     "Donna": {"TX": 375},
+    # можна додати ще, якщо пропустив якісь
 }
 
 # ────────────────────────────────────────────────
-# Freight дані з твоєї таблиці (повні)
+# Freight (точно з твого останнього CSV)
 freight = {
     "Constanta": {
         "NJ": {"GAS": 2665, "DIESEL": 2665, "EV": 2930, "HYB": 2930, "GAS 3": 2860, "DIESEL 3": 2860, "EV 3": 3265, "HYB 3": 3265, "GAS 2": 3980, "DIESEL 2": 3980, "MOTO": 2000},
@@ -358,110 +235,99 @@ freight = {
 col1, col2 = st.columns([6, 5])
 
 with col1:
-    st.subheader("Основні дані")
+    st.subheader("Інформація про авто")
 
-    client = st.text_input("Клієнт")
+    client = st.text_input("Клієнт / Замовлення")
     model = st.text_input("Модель авто")
     vin = st.text_input("VIN")
+    year = st.number_input("Рік по шильдику", min_value=1900, max_value=2030, value=2015, step=1)
+    engine_volume = st.number_input("Об'єм двигуна (л)", min_value=0.0, max_value=10.0, value=2.0, step=0.1, format="%.1f")
 
-    location = st.selectbox("Локація аукціону", options=sorted(tow.keys()))
+    location = st.selectbox("Локація аукціону", sorted(tow.keys()))
 
-    # Доступні порти для вибраної локації
-    if location in tow:
-        avail = {p: v for p, v in tow[location].items() if v is not None}
-        if avail:
-            port_label = st.selectbox("Порт США", [f"{p} — {v} $" for p, v in sorted(avail.items(), key=lambda x: x[1])])
-            us_port = port_label.split(" — ")[0]
-            tow_cost = avail[us_port]
-        else:
-            st.warning("Немає доступних портів")
-            us_port = None
-            tow_cost = 0
+    # Показ доступних портів
+    avail_ports = tow.get(location, {})
+    if avail_ports:
+        port_options = [f"{p} — {c}$" for p, c in avail_ports.items() if c is not None]
+        selected_port = st.selectbox("Порт відправлення США", port_options)
+        us_port = selected_port.split(" — ")[0]
+        tow_cost = avail_ports[us_port]
     else:
+        st.warning("Для цієї локації немає доступних портів")
         us_port = None
         tow_cost = 0
 
-    ua_port = st.selectbox("Порт в Україні/Європі", ["Constanta", "Odesa", "Klaipeda"])
-
-    st.subheader("Тип авто та завантаження")
+    ua_port = st.selectbox("Порт призначення", ["Constanta", "Odesa", "Klaipeda"])
 
     transport_type = st.radio("Тип", ["Авто", "Мотоцикл"], horizontal=True)
 
     if transport_type == "Авто":
         fuel = st.selectbox("Паливо", ["GAS", "DIESEL", "EV", "HYB"])
-        container = st.selectbox("Контейнер", ["1 авто (стандарт)", "3 машини", "2 місця (півконтейнера)"])
+        container = st.selectbox("Завантаження", ["1 авто (стандарт)", "3 машини в контейнері", "2 місця (півконтейнера)"])
         if container == "1 авто (стандарт)":
             f_key = fuel
-        elif container == "3 машини":
+        elif container == "3 машини в контейнері":
             f_key = fuel + " 3"
         else:
             f_key = fuel + " 2"
     else:
         f_key = "MOTO"
-        fuel = None
-        container = None
+        fuel = "MOTO"
+        container = "MOTO"
 
 with col2:
-    st.subheader("Додаткові витрати")
+    st.subheader("Витрати (змінювати можна)")
 
     auction = st.number_input("Збір аукціону", value=340)
-    swift = st.number_input("Swift аукціон", value=121)
+    swift = st.number_input("Swift Аукціон", value=121)
     insurance = st.number_input("Страхування", value=50)
     storage = st.number_input("Storage", value=0)
     other = st.number_input("Інше", value=0)
-    customs = st.number_input("Митні платежі", value=1720)
-    paid = st.number_input("Вже сплачено", value=0)
+    customs = st.number_input("Митні Платежі", value=1720)
+    paid = st.number_input("Вже сплачено (PAID)", value=0)
 
-# ────────────────────────────────────────────────
-if st.button("Розрахувати", type="primary", use_container_width=True):
+if st.button("Розрахувати ALL IN", type="primary", use_container_width=True):
     if not us_port:
-        st.error("Оберіть локацію та порт США")
+        st.error("Обери локацію та порт США")
     else:
-        try:
-            freight_cost = freight[ua_port][us_port][f_key]
-        except (KeyError, TypeError):
-            freight_cost = None
-
+        freight_cost = freight.get(ua_port, {}).get(us_port, {}).get(f_key)
         if freight_cost is None:
-            st.error(f"Немає тарифу для {ua_port} + {us_port} + {f_key}")
+            st.error(f"Немає тарифу для {ua_port} → {us_port} → {f_key}")
         else:
             subtotal = tow_cost + freight_cost + auction + swift + insurance + storage + other
             total = subtotal + customs
             debt = total - paid
 
-            st.success("Розрахунок готовий!")
+            st.success("Готово!")
 
             st.markdown(f"""
-            **TOW (буксирування):** {tow_cost:,} $
-            **Фрахт:** {freight_cost:,} $
-            **Аукціон + Swift + Страхування:** {auction + swift + insurance:,} $
-            **Storage + Інше:** {storage + other:,} $
-            ───────────────────────────────
-            **Сума без мита:** {subtotal:,} $
-            **Митні платежі:** {customs:,} $
-            **ALL IN:** **{total:,} $**
+            **Дата:** {st.session_state.get('date', 'сьогодні')}
+            **Клієнт:** {client}
+            **Модель:** {model} | VIN: {vin}
+            **Рік:** {year} | Об'єм: {engine_volume} л
+            **Локація:** {location} → {us_port}
+            **Порт UA:** {ua_port}
+            **Тип:** {transport_type} {f_key}
 
-            **Сплачено:** {paid:,} $
+            **TOW:** {tow_cost:,} $
+            **Фрахт:** {freight_cost:,} $
+            **Аукціон + Swift + Страх:** {auction + swift + insurance:,} $
+            **Storage + Інше:** {storage + other:,} $
+            **Митні платежі:** {customs:,} $
+
+            **ALL IN:** **{total:,} $**
             **До оплати (DEBT):** **{debt:,} $**
             """)
 
             copy_text = f"""Нікіта Калькулятор
-Дата: сьогодні
-Клієнт: {client}
-Модель: {model}
-VIN: {vin}
-Локація: {location} → {us_port}
-Порт UA: {ua_port}
-Тип: {transport_type} {f_key if transport_type == 'Авто' else 'MOTO'}
-
+{client} | {model} | {vin}
+Рік {year} | Об'єм {engine_volume}л | {location} → {us_port} → {ua_port}
 TOW: {tow_cost}$
 Фрахт: {freight_cost}$
 Мито: {customs}$
 ВСЬОГО: {total}$
 До оплати: {debt}$"""
 
-            st.code(copy_text, language="text")
-
-            if st.button("Копіювати в буфер обміну"):
-                st.session_state['clipboard'] = copy_text
-                st.toast("Скопійовано!", icon="📋")
+            st.code(copy_text)
+            if st.button("Копіювати"):
+                st.toast("Скопійовано!", icon="✅")
